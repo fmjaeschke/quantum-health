@@ -1,0 +1,6 @@
+{
+  "apiUrl": "/api",
+  "issuer": "http://localhost:8180/realms/quantum-health",
+  "clientId": "quantum-health-frontend",
+  "requireHttps": false
+}

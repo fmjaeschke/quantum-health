@@ -1,0 +1,144 @@
+{
+  "realm": "quantum-health",
+  "enabled": true,
+  "displayName": "QuantumHealth",
+  "displayNameHtml": "<strong>QuantumHealth</strong>",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "realm": [
+      { "name": "ADMIN",         "description": "Full system access; manages users and audit log", "composite": false },
+      { "name": "CLERK",         "description": "Registers patients, schedules and confirms appointments", "composite": false },
+      { "name": "DOCTOR",        "description": "Clinical notes, prescriptions, lab orders", "composite": false },
+      { "name": "NURSE",         "description": "Read-only access to encounter notes", "composite": false },
+      { "name": "PHARMACIST",    "description": "Views and fulfils prescriptions", "composite": false },
+      { "name": "BILLING_CLERK", "description": "Invoices, insurance claims, payments", "composite": false },
+      { "name": "LAB_TECH",      "description": "Receives lab orders, uploads PDF results", "composite": false }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "quantum-health-backend",
+      "name": "QuantumHealth Backend",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "secret": "backend-secret",
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "roles"
+      ]
+    },
+    {
+      "clientId": "quantum-health-frontend",
+      "name": "QuantumHealth Frontend",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "http://localhost:4200/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4200"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4200/*"
+      },
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "roles"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@quantum.local",
+      "email": "admin@quantum.local",
+      "firstName": "System",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": false }],
+      "realmRoles": ["ADMIN"]
+    },
+    {
+      "username": "clerk@quantum.local",
+      "email": "clerk@quantum.local",
+      "firstName": "Jane",
+      "lastName": "Clerk",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": false }],
+      "realmRoles": ["CLERK"]
+    },
+    {
+      "username": "doctor@quantum.local",
+      "email": "doctor@quantum.local",
+      "firstName": "James",
+      "lastName": "Smith",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": false }],
+      "realmRoles": ["DOCTOR"]
+    },
+    {
+      "username": "nurse@quantum.local",
+      "email": "nurse@quantum.local",
+      "firstName": "Mary",
+      "lastName": "Nurse",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": false }],
+      "realmRoles": ["NURSE"]
+    },
+    {
+      "username": "pharmacist@quantum.local",
+      "email": "pharmacist@quantum.local",
+      "firstName": "Bob",
+      "lastName": "Pharma",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": false }],
+      "realmRoles": ["PHARMACIST"]
+    },
+    {
+      "username": "billing@quantum.local",
+      "email": "billing@quantum.local",
+      "firstName": "Carol",
+      "lastName": "Billing",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": false }],
+      "realmRoles": ["BILLING_CLERK"]
+    },
+    {
+      "username": "labtech@quantum.local",
+      "email": "labtech@quantum.local",
+      "firstName": "Tom",
+      "lastName": "Lab",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Test1234!", "temporary": false }],
+      "realmRoles": ["LAB_TECH"]
+    }
+  ]
+}
