@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
-@Table(name = "patient")
+@Table(name = "qh_patient")
 public class JpaPatient {
 
     @Id

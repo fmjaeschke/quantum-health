@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0003-add-appointment-patient-fk
+      author: quantum
+      changes:
+        - addForeignKeyConstraint:
+            constraintName: fk_appointment_patient
+            baseTableName: qh_appointment
+            baseColumnNames: patient_id
+            referencedTableName: qh_patient
+            referencedColumnNames: id

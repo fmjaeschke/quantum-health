@@ -1,0 +1,21 @@
+qh_patient:
+  - id: "550e8400-e29b-41d4-a716-446655440000"
+    first_name: "Alice"
+    last_name: "Smith"
+    date_of_birth: "1990-05-15"
+
+qh_appointment:
+  - id: "aaaaaaaa-0000-0000-0000-000000000001"
+    patient_id: "550e8400-e29b-41d4-a716-446655440000"
+    patient_name: "Alice Smith"
+    doctor_id: "doctor-1"
+    doctor_name: "Dr. One"
+    scheduled_at: "2025-06-01 10:00:00"
+    status: "SCHEDULED"
+  - id: "aaaaaaaa-0000-0000-0000-000000000002"
+    patient_id: "550e8400-e29b-41d4-a716-446655440000"
+    patient_name: "Alice Smith"
+    doctor_id: "doctor-2"
+    doctor_name: "Dr. Two"
+    scheduled_at: "2025-06-02 11:00:00"
+    status: "CONFIRMED"

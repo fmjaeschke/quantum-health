@@ -1,2 +1,8 @@
 import { Routes } from '@angular/router';
-export const appointmentsRoutes: Routes = [];
+import { AppointmentListComponent } from './list/appointment-list.component';
+import { ScheduleAppointmentComponent } from './schedule/schedule-appointment.component';
+
+export const appointmentsRoutes: Routes = [
+  { path: '', component: AppointmentListComponent },
+  { path: 'new', component: ScheduleAppointmentComponent },
+];

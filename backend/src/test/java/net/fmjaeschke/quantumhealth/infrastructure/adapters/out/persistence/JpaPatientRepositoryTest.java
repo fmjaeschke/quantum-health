@@ -106,6 +106,7 @@ class JpaPatientRepositoryTest {
     }
 
     @Test
+    @DataSet("datasets/empty.yml")
     void findByDoctor_returns_empty_page_when_no_appointments_exist() {
         var query = defaultQuery();
         var page = repository.findByDoctor(UserId.of("doctor-1"), query);

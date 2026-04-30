@@ -4,7 +4,7 @@ databaseChangeLog:
       author: quantum
       changes:
         - createTable:
-            tableName: patient
+            tableName: qh_patient
             columns:
               - column:
                   name: id

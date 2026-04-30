@@ -1,3 +1,7 @@
 databaseChangeLog:
   - include:
       file: db/changelog/0001-create-patient.yaml
+  - include:
+      file: db/changelog/0002-create-appointment.yaml
+  - include:
+      file: db/changelog/0003-add-appointment-patient-fk.yaml
