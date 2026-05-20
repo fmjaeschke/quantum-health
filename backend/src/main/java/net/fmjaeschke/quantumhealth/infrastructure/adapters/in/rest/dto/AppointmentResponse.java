@@ -12,5 +12,6 @@ public record AppointmentResponse(
         String doctorId,
         String doctorName,
         LocalDateTime scheduledAt,
+        String reason,
         AppointmentStatus status
 ) {}

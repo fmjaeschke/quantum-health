@@ -5,10 +5,12 @@ import jakarta.enterprise.context.ApplicationScoped;
 import net.fmjaeschke.quantumhealth.application.ports.out.AppointmentRepository;
 import net.fmjaeschke.quantumhealth.domain.model.Appointment;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentId;
+import net.fmjaeschke.quantumhealth.domain.model.AppointmentPage;
+import net.fmjaeschke.quantumhealth.domain.model.AppointmentQuery;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 
-import java.util.List;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -30,14 +32,24 @@ public class JpaAppointmentRepository
     }
 
     @Override
-    public List<Appointment> findByDoctorId(UserId doctorId, UserId actor) {
-        return list("doctorId", doctorId.value())
-                .stream().map(JpaAppointment::toDomain).toList();
-    }
+    public AppointmentPage findAll(AppointmentQuery query) {
+        var jpql = new StringBuilder("FROM JpaAppointment a WHERE 1=1");
+        var params = new HashMap<String, Object>();
 
-    @Override
-    public List<Appointment> findAll(UserId actor) {
-        return this.listAll().stream().map(JpaAppointment::toDomain).toList();
+        query.statusFilter().ifPresent(s -> {
+            jpql.append(" AND a.status = :status");
+            params.put("status", s);
+        });
+        query.doctorIdFilter().ifPresent(id -> {
+            jpql.append(" AND a.doctorId = :doctorId");
+            params.put("doctorId", id.value());
+        });
+
+        var pq = find(jpql.toString(), params);
+        pq.page(query.page(), query.pageSize());
+        var total = pq.count();
+        var appointments = pq.list().stream().map(JpaAppointment::toDomain).toList();
+        return new AppointmentPage(appointments, total, query.page(), query.pageSize());
     }
 
     @Override

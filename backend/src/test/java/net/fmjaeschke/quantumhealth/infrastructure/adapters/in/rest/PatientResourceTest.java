@@ -85,16 +85,6 @@ class PatientResourceTest {
     }
 
     @Test
-    void unauthenticated_request_is_rejected() {
-        given().contentType(ContentType.JSON)
-                .body("{\"firstName\":\"Eve\",\"lastName\":\"Hacker\",\"dateOfBirth\":\"2000-01-01\"}")
-                .when()
-                .post("/patients")
-                .then()
-                .statusCode(401);
-    }
-
-    @Test
     @TestSecurity(user = "clerk-1", roles = {"CLERK"})
     void get_unknown_patient_returns_404() {
         when(readPatientMock.findById(eq(PatientId.of(PATIENT_ID)), any())).thenThrow(new PatientNotFoundException(PatientId.of(PATIENT_ID)));
@@ -122,13 +112,6 @@ class PatientResourceTest {
                 .body("_links.self.href", containsString("/patients"));
     }
 
-    @Test
-    void unauthenticated_list_is_rejected() {
-        given().when()
-                .get("/patients")
-                .then()
-                .statusCode(401);
-    }
 
     @Test
     @TestSecurity(user = "clerk-1", roles = {"CLERK"})

@@ -62,4 +62,31 @@ class QuarkusAccessPolicyTest {
     void isDoctor_returns_false_for_non_doctor_role() {
         assertThat(accessPolicy.isDoctor(UserId.of("clerk-1"))).isFalse();
     }
+
+    @Test
+    @TestSecurity(user = "clerk-1", roles = {"CLERK"})
+    void clerk_is_allowed_to_confirm_and_check_in_and_cancel() {
+        assertThat(accessPolicy.isAllowed(Permission.CONFIRM_APPOINTMENT, UserId.of("clerk-1"))).isTrue();
+        assertThat(accessPolicy.isAllowed(Permission.CHECK_IN_PATIENT, UserId.of("clerk-1"))).isTrue();
+        assertThat(accessPolicy.isAllowed(Permission.CANCEL_APPOINTMENT, UserId.of("clerk-1"))).isTrue();
+        assertThat(accessPolicy.isAllowed(Permission.START_ENCOUNTER, UserId.of("clerk-1"))).isFalse();
+    }
+
+    @Test
+    @TestSecurity(user = "doctor-1", roles = {"DOCTOR"})
+    void doctor_is_allowed_to_start_and_cancel_but_not_confirm_or_check_in() {
+        assertThat(accessPolicy.isAllowed(Permission.START_ENCOUNTER, UserId.of("doctor-1"))).isTrue();
+        assertThat(accessPolicy.isAllowed(Permission.CANCEL_APPOINTMENT, UserId.of("doctor-1"))).isTrue();
+        assertThat(accessPolicy.isAllowed(Permission.CONFIRM_APPOINTMENT, UserId.of("doctor-1"))).isFalse();
+        assertThat(accessPolicy.isAllowed(Permission.CHECK_IN_PATIENT, UserId.of("doctor-1"))).isFalse();
+    }
+
+    @Test
+    @TestSecurity(user = "nurse-1", roles = {"NURSE"})
+    void nurse_is_not_allowed_any_appointment_transitions() {
+        assertThat(accessPolicy.isAllowed(Permission.CONFIRM_APPOINTMENT, UserId.of("nurse-1"))).isFalse();
+        assertThat(accessPolicy.isAllowed(Permission.CHECK_IN_PATIENT, UserId.of("nurse-1"))).isFalse();
+        assertThat(accessPolicy.isAllowed(Permission.START_ENCOUNTER, UserId.of("nurse-1"))).isFalse();
+        assertThat(accessPolicy.isAllowed(Permission.CANCEL_APPOINTMENT, UserId.of("nurse-1"))).isFalse();
+    }
 }

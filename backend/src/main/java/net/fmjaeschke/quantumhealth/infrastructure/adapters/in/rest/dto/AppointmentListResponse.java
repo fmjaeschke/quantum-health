@@ -6,7 +6,10 @@ import java.util.List;
 
 public record AppointmentListResponse(
         @JsonProperty("_embedded") Embedded embedded,
-        @JsonProperty("_links") Links links
+        @JsonProperty("_links") Links links,
+        int page,
+        int pageSize,
+        long totalElements
 ) {
     public record Embedded(@JsonProperty("appointments") List<AppointmentResponse> appointments) {}
     public record Links(Link self) {}

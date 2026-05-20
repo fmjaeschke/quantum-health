@@ -1,6 +1,7 @@
 package net.fmjaeschke.quantumhealth.infrastructure.adapters.out.persistence;
 
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
+import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import net.fmjaeschke.quantumhealth.application.ports.out.AppointmentRepository;
 import net.fmjaeschke.quantumhealth.application.ports.out.PatientRepository;
@@ -70,12 +71,12 @@ public class JpaPatientRepository implements PatientRepository, PanacheRepositor
                     jpql.append(" AND p.dateOfBirth = :dob");
                     params.put("dob", dob);
                 });
-        jpql.append(" ORDER BY p.")
-                .append(query.sortField().jpqlField)
-                .append(" ")
-                .append(query.sortDirection());
+        var sort = Sort.by("p." + query.sortField().jpqlField,
+                query.sortDirection() == PatientQuery.SortDirection.DESC
+                        ? Sort.Direction.Descending
+                        : Sort.Direction.Ascending);
 
-        var pq = find(jpql.toString(), params);
+        var pq = find(jpql.toString(), sort, params);
         pq.page(query.page(), query.size());
         var total = pq.count();
         var result = pq.list()

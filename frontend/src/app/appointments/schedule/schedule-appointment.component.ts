@@ -1,15 +1,19 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DatePickerModule } from 'primeng/datepicker';
+import { AutoCompleteModule, AutoCompleteSelectEvent } from 'primeng/autocomplete';
 import { AppointmentStore } from '../appointment.store';
+import { DoctorService } from '../doctor.service';
+import { Doctor } from '../appointment.model';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-schedule-appointment',
   standalone: true,
-  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, DatePickerModule],
+  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, DatePickerModule, AutoCompleteModule],
   template: `
     <div class="schedule-appointment">
       <nav class="schedule-appointment__breadcrumb">
@@ -29,26 +33,19 @@ import { AppointmentStore } from '../appointment.store';
         </div>
 
         <div class="schedule-appointment__field">
-          <label for="patientName">Patient Name *</label>
-          <input pInputText id="patientName" formControlName="patientName" placeholder="Patient Name" class="w-full" />
-          @if (form.controls.patientName.dirty && form.controls.patientName.hasError('required')) {
-            <small class="schedule-appointment__error">Patient Name is required</small>
-          }
-        </div>
-
-        <div class="schedule-appointment__field">
-          <label for="doctorId">Doctor ID *</label>
-          <input pInputText id="doctorId" formControlName="doctorId" placeholder="Doctor ID" class="w-full" />
+          <label for="doctor">Doctor *</label>
+          <p-autocomplete
+            inputId="doctor"
+            [suggestions]="filteredDoctors()"
+            field="displayName"
+            (completeMethod)="filterDoctors($event.query)"
+            (onSelect)="onDoctorSelect($event)"
+            [forceSelection]="true"
+            placeholder="Search doctor..."
+            class="w-full"
+          />
           @if (form.controls.doctorId.dirty && form.controls.doctorId.hasError('required')) {
-            <small class="schedule-appointment__error">Doctor ID is required</small>
-          }
-        </div>
-
-        <div class="schedule-appointment__field">
-          <label for="doctorName">Doctor Name *</label>
-          <input pInputText id="doctorName" formControlName="doctorName" placeholder="Doctor Name" class="w-full" />
-          @if (form.controls.doctorName.dirty && form.controls.doctorName.hasError('required')) {
-            <small class="schedule-appointment__error">Doctor Name is required</small>
+            <small class="schedule-appointment__error">Doctor is required</small>
           }
         </div>
 
@@ -58,6 +55,14 @@ import { AppointmentStore } from '../appointment.store';
                         [showTime]="true" [showIcon]="true" dateFormat="dd/mm/yy" class="w-full" />
           @if (form.controls.scheduledAt.dirty && form.controls.scheduledAt.hasError('required')) {
             <small class="schedule-appointment__error">Date &amp; Time is required</small>
+          }
+        </div>
+
+        <div class="schedule-appointment__field">
+          <label for="reason">Reason *</label>
+          <input pInputText id="reason" formControlName="reason" placeholder="Reason for visit" class="w-full" />
+          @if (form.controls.reason.dirty && form.controls.reason.hasError('required')) {
+            <small class="schedule-appointment__error">Reason is required</small>
           }
         </div>
 
@@ -80,18 +85,41 @@ import { AppointmentStore } from '../appointment.store';
     .schedule-appointment__actions { display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 0.5rem; }
   `],
 })
-export class ScheduleAppointmentComponent {
+export class ScheduleAppointmentComponent implements OnInit {
   protected readonly store = inject(AppointmentStore);
   protected readonly router = inject(Router);
+  private readonly doctorService = inject(DoctorService);
   private readonly fb = inject(FormBuilder);
+
+  private allDoctors: Doctor[] = [];
+  protected readonly filteredDoctors = signal<Doctor[]>([]);
 
   protected readonly form = this.fb.group({
     patientId: ['', Validators.required],
-    patientName: ['', Validators.required],
     doctorId: ['', Validators.required],
-    doctorName: ['', Validators.required],
     scheduledAt: [null as Date | null, Validators.required],
+    reason: ['', Validators.required],
   });
+
+  async ngOnInit(): Promise<void> {
+    try {
+      this.allDoctors = await firstValueFrom(this.doctorService.list());
+    } catch {
+      this.allDoctors = [];
+    }
+  }
+
+  protected filterDoctors(query: string): void {
+    const lower = query.toLowerCase();
+    this.filteredDoctors.set(
+      this.allDoctors.filter(d => d.displayName.toLowerCase().includes(lower))
+    );
+  }
+
+  protected onDoctorSelect(event: AutoCompleteSelectEvent): void {
+    const doctor = event.value as Doctor;
+    this.form.controls.doctorId.setValue(doctor.id);
+  }
 
   protected async onSubmit(): Promise<void> {
     if (this.form.invalid) {
@@ -99,7 +127,7 @@ export class ScheduleAppointmentComponent {
       Object.values(this.form.controls).forEach(c => c.markAsDirty());
       return;
     }
-    const { patientId, patientName, doctorId, doctorName, scheduledAt } = this.form.getRawValue();
+    const { patientId, doctorId, scheduledAt, reason } = this.form.getRawValue();
     const date = scheduledAt as Date;
     const dateStr = [
       date.getFullYear(),
@@ -112,10 +140,9 @@ export class ScheduleAppointmentComponent {
     ].join(':');
     await this.store.scheduleAppointment({
       patientId: patientId!,
-      patientName: patientName!,
       doctorId: doctorId!,
-      doctorName: doctorName!,
       scheduledAt: `${dateStr}T${timeStr}`,
+      reason: reason!,
     });
   }
 }

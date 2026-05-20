@@ -98,6 +98,11 @@ class PatientServiceTest {
         }
 
         @Override
+        public boolean isAllowed(Permission p, UserId actor) {
+            return true;
+        }
+
+        @Override
         public boolean isDoctor(UserId actor) {
             return false;
         }
@@ -110,6 +115,11 @@ class PatientServiceTest {
         }
 
         @Override
+        public boolean isAllowed(Permission p, UserId actor) {
+            return false;
+        }
+
+        @Override
         public boolean isDoctor(UserId actor) {
             return false;
         }
@@ -118,6 +128,11 @@ class PatientServiceTest {
     static class DoctorPolicy implements AccessPolicy {
         @Override
         public void check(Permission p, UserId actor, ResourceId resource) {
+        }
+
+        @Override
+        public boolean isAllowed(Permission p, UserId actor) {
+            return true;
         }
 
         @Override

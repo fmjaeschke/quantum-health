@@ -38,6 +38,11 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: reason
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+              - column:
                   name: status
                   type: VARCHAR(50)
                   constraints:

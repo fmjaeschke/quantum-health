@@ -12,7 +12,8 @@ const mockAppointmentScheduled = {
   doctorId: 'dr-smith',
   doctorName: 'Dr. Smith',
   scheduledAt: '2026-05-01T10:00',
-  status: 'SCHEDULED' as const,
+  reason: 'Routine checkup',
+  status: 'PENDING' as const,
   _links: {
     self: { href: '/api/appointments/appt-1' },
     confirm: { href: '/api/appointments/appt-1/confirm' },
@@ -28,11 +29,18 @@ const mockConfirmed = {
   },
 };
 
+const mockPage = {
+  appointments: [mockAppointmentScheduled],
+  page: 0,
+  pageSize: 20,
+  totalElements: 1,
+};
+
 describe('AppointmentStore', () => {
   const mockService = {
     schedule: vi.fn().mockReturnValue(of(mockAppointmentScheduled)),
     get: vi.fn().mockReturnValue(of(mockAppointmentScheduled)),
-    list: vi.fn().mockReturnValue(of([mockAppointmentScheduled])),
+    list: vi.fn().mockReturnValue(of(mockPage)),
     postTransition: vi.fn().mockReturnValue(of(mockConfirmed)),
   };
   const mockRouter = { navigate: vi.fn() };
@@ -41,7 +49,7 @@ describe('AppointmentStore', () => {
     vi.clearAllMocks();
     mockService.schedule.mockReturnValue(of(mockAppointmentScheduled));
     mockService.get.mockReturnValue(of(mockAppointmentScheduled));
-    mockService.list.mockReturnValue(of([mockAppointmentScheduled]));
+    mockService.list.mockReturnValue(of(mockPage));
     mockService.postTransition.mockReturnValue(of(mockConfirmed));
 
     TestBed.configureTestingModule({
@@ -57,6 +65,9 @@ describe('AppointmentStore', () => {
     expect(store.appointments()).toEqual([]);
     expect(store.currentAppointment()).toBeNull();
     expect(store.loading()).toBe(false);
+    expect(store.page()).toBe(0);
+    expect(store.pageSize()).toBe(20);
+    expect(store.statusFilter()).toBeNull();
   });
 
   it('loadAppointments() fetches list and stores it', async () => {
@@ -66,6 +77,29 @@ describe('AppointmentStore', () => {
     expect(store.appointments()).toHaveLength(1);
     expect(store.appointments()[0].patientName).toBe('Alice Smith');
     expect(store.loading()).toBe(false);
+  });
+
+  it('loadAppointments() passes current page, pageSize, and statusFilter to service', async () => {
+    const store = TestBed.inject(AppointmentStore);
+    await store.setStatusFilter('PENDING');
+    mockService.list.mockClear();
+    await store.loadAppointments();
+    expect(mockService.list).toHaveBeenCalledWith({ status: 'PENDING', page: 0, pageSize: 20 });
+  });
+
+  it('setStatusFilter() sets filter, resets page to 0, and reloads', async () => {
+    const store = TestBed.inject(AppointmentStore);
+    await store.setStatusFilter('CONFIRMED');
+    expect(store.statusFilter()).toBe('CONFIRMED');
+    expect(store.page()).toBe(0);
+    expect(mockService.list).toHaveBeenCalledTimes(1);
+  });
+
+  it('setStatusFilter(null) clears filter and reloads', async () => {
+    const store = TestBed.inject(AppointmentStore);
+    await store.setStatusFilter('PENDING');
+    await store.setStatusFilter(null);
+    expect(store.statusFilter()).toBeNull();
   });
 
   it('loadAppointment() fetches by id and stores it', async () => {
@@ -79,21 +113,22 @@ describe('AppointmentStore', () => {
   it('scheduleAppointment() calls service and navigates to detail', async () => {
     const store = TestBed.inject(AppointmentStore);
     await store.scheduleAppointment({
-      patientId: 'p-1', patientName: 'Alice Smith',
-      doctorId: 'dr-smith', doctorName: 'Dr. Smith',
+      patientId: 'p-1',
+      doctorId: 'dr-smith',
       scheduledAt: '2026-05-01T10:00',
+      reason: 'Routine checkup',
     });
     expect(mockService.schedule).toHaveBeenCalled();
     expect(mockRouter.navigate).toHaveBeenCalledWith(['/appointments', APPT_ID]);
   });
 
-  it('transition() POSTs to HAL link href and reloads', async () => {
+  it('transition() POSTs to HAL link href and patches currentAppointment without a secondary GET', async () => {
     const store = TestBed.inject(AppointmentStore);
     await store.loadAppointment(APPT_ID);
     await store.transition('confirm');
     expect(mockService.postTransition)
       .toHaveBeenCalledWith('/api/appointments/appt-1/confirm');
-    expect(mockService.get).toHaveBeenCalledTimes(2);
+    expect(mockService.get).toHaveBeenCalledTimes(1);
     expect(store.currentAppointment()?.status).toBe('CONFIRMED');
   });
 
@@ -112,12 +147,12 @@ describe('AppointmentStore', () => {
     expect(store.loading()).toBe(false);
   });
 
-  it('transition() updates currentAppointment from POST even if GET reload fails', async () => {
+  it('loadAppointment() clears currentAppointment before fetching', async () => {
     const store = TestBed.inject(AppointmentStore);
     await store.loadAppointment(APPT_ID);
-    mockService.get.mockReturnValue(throwError(() => new Error('reload failed')));
-    await store.transition('confirm');
-    expect(store.currentAppointment()?.status).toBe('CONFIRMED');
-    expect(store.loading()).toBe(false);
+    expect(store.currentAppointment()?.id).toBe(APPT_ID);
+    mockService.get.mockReturnValue(throwError(() => new Error('fail')));
+    await store.loadAppointment('other-id');
+    expect(store.currentAppointment()).toBeNull();
   });
 });

@@ -4,19 +4,37 @@ import { DatePipe } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
 import { SkeletonModule } from 'primeng/skeleton';
+import { SelectButtonModule } from 'primeng/selectbutton';
+import { PaginatorModule, PaginatorState } from 'primeng/paginator';
+import { FormsModule } from '@angular/forms';
 import { AppointmentStore } from '../appointment.store';
 import { AppointmentStatus } from '../appointment.model';
+
+interface StatusOption {
+  label: string;
+  value: AppointmentStatus | null;
+}
 
 @Component({
   selector: 'app-appointment-list',
   standalone: true,
-  imports: [RouterLink, DatePipe, ButtonModule, TagModule, SkeletonModule],
+  imports: [RouterLink, DatePipe, ButtonModule, TagModule, SkeletonModule, SelectButtonModule, PaginatorModule, FormsModule],
   template: `
     <div class="appointment-list">
       <div class="appointment-list__header">
         <h2>Appointments</h2>
         <p-button label="Schedule New" icon="pi pi-plus"
                   (click)="router.navigate(['/appointments', 'new'])"></p-button>
+      </div>
+
+      <div class="appointment-list__filters">
+        <p-selectButton
+          [options]="statusOptions"
+          [(ngModel)]="selectedStatus"
+          optionLabel="label"
+          optionValue="value"
+          (onChange)="onStatusChange($event.value)">
+        </p-selectButton>
       </div>
 
       <table class="appointment-list__table">
@@ -60,11 +78,19 @@ import { AppointmentStatus } from '../appointment.model';
           }
         </tbody>
       </table>
+
+      <p-paginator
+        [rows]="store.pageSize()"
+        [totalRecords]="store.totalElements()"
+        [first]="store.page() * store.pageSize()"
+        (onPageChange)="onPageChange($event)">
+      </p-paginator>
     </div>
   `,
   styles: [`
     .appointment-list { display: flex; flex-direction: column; gap: 1rem; }
     .appointment-list__header { display: flex; justify-content: space-between; align-items: center; }
+    .appointment-list__filters { display: flex; gap: 0.5rem; align-items: center; }
     .appointment-list__table { width: 100%; border-collapse: collapse; }
     .appointment-list__table th { text-align: left; padding: 0.5rem 0.75rem; background: var(--p-surface-100); }
     .appointment-list__table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--p-surface-200); }
@@ -76,14 +102,37 @@ export class AppointmentListComponent implements OnInit {
   protected readonly store = inject(AppointmentStore);
   protected readonly router = inject(Router);
 
+  protected selectedStatus: AppointmentStatus | null = null;
+
+  protected readonly statusOptions: StatusOption[] = [
+    { label: 'All', value: null },
+    { label: 'Pending', value: 'PENDING' },
+    { label: 'Confirmed', value: 'CONFIRMED' },
+    { label: 'Arrived', value: 'ARRIVED' },
+    { label: 'In Progress', value: 'IN_PROGRESS' },
+    { label: 'Completed', value: 'COMPLETED' },
+    { label: 'Cancelled', value: 'CANCELLED' },
+  ];
+
   ngOnInit(): void {
     this.store.loadAppointments();
+  }
+
+  protected onStatusChange(status: AppointmentStatus | null): void {
+    this.store.setStatusFilter(status);
+  }
+
+  protected onPageChange(event: PaginatorState): void {
+    const page = (event.page ?? 0);
+    const pageSize = event.rows ?? this.store.pageSize();
+    this.store.setPage(page, pageSize);
   }
 
   protected statusSeverity(status: AppointmentStatus): 'success' | 'warn' | 'danger' | 'secondary' {
     switch (status) {
       case 'CONFIRMED': return 'success';
-      case 'SCHEDULED': return 'warn';
+      case 'ARRIVED':
+      case 'IN_PROGRESS': return 'warn';
       case 'CANCELLED': return 'danger';
       default: return 'secondary';
     }

@@ -1,5 +1,5 @@
 package net.fmjaeschke.quantumhealth.domain.model;
 
 public enum AppointmentStatus {
-    SCHEDULED, CONFIRMED, CANCELLED
+    PENDING, CONFIRMED, ARRIVED, IN_PROGRESS, COMPLETED, CANCELLED
 }

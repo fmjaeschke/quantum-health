@@ -106,6 +106,47 @@ class JpaPatientRepositoryTest {
     }
 
     @Test
+    @DataSet("datasets/patients-sort.yml")
+    void findAll_sorts_by_lastName_ascending() {
+        var query = new PatientQuery(Optional.empty(), Optional.empty(), 0, 20, PatientQuery.SortField.LAST_NAME, PatientQuery.SortDirection.ASC);
+        var page = repository.findAll(query);
+
+        assertThat(page.patients()).extracting(Patient::getLastName)
+                .containsExactly("Adams", "Smith");
+    }
+
+    @Test
+    @DataSet("datasets/patients-sort.yml")
+    void findAll_sorts_by_lastName_descending() {
+        var query = new PatientQuery(Optional.empty(), Optional.empty(), 0, 20, PatientQuery.SortField.LAST_NAME, PatientQuery.SortDirection.DESC);
+        var page = repository.findAll(query);
+
+        assertThat(page.patients()).extracting(Patient::getLastName)
+                .containsExactly("Smith", "Adams");
+    }
+
+    @Test
+    @DataSet("datasets/patients-sort.yml")
+    void findAll_paginates_results() {
+        var query = new PatientQuery(Optional.empty(), Optional.empty(), 0, 1, PatientQuery.SortField.LAST_NAME, PatientQuery.SortDirection.ASC);
+        var page = repository.findAll(query);
+
+        assertThat(page.totalElements()).isEqualTo(2);
+        assertThat(page.patients()).hasSize(1);
+        assertThat(page.patients().getFirst().getLastName()).isEqualTo("Adams");
+    }
+
+    @Test
+    @DataSet("datasets/patients-with-appointments.yml")
+    void findByDoctor_returns_only_patients_with_appointments_for_that_doctor() {
+        var query = defaultQuery();
+        var page = repository.findByDoctor(UserId.of("doctor-1"), query);
+
+        assertThat(page.totalElements()).isEqualTo(1);
+        assertThat(page.patients().getFirst().getLastName()).isEqualTo("Smith");
+    }
+
+    @Test
     @DataSet("datasets/empty.yml")
     void findByDoctor_returns_empty_page_when_no_appointments_exist() {
         var query = defaultQuery();

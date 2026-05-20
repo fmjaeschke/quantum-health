@@ -37,6 +37,9 @@ public class JpaAppointment {
     @Column(name = "scheduled_at", nullable = false)
     public LocalDateTime scheduledAt;
 
+    @Column(name = "reason", nullable = false, length = 500)
+    public String reason;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     public AppointmentStatus status;
@@ -49,6 +52,7 @@ public class JpaAppointment {
         entity.doctorId = a.getDoctorId().value();
         entity.doctorName = a.getDoctorName();
         entity.scheduledAt = a.getScheduledAt();
+        entity.reason = a.getReason();
         entity.status = a.getStatus();
         return entity;
     }
@@ -61,6 +65,7 @@ public class JpaAppointment {
                 UserId.of(doctorId),
                 doctorName,
                 scheduledAt,
+                reason,
                 status);
     }
 }

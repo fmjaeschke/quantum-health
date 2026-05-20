@@ -4,7 +4,6 @@ import io.quarkus.hal.HalEntityWrapper;
 import io.quarkus.resteasy.reactive.links.InjectRestLinks;
 import io.quarkus.resteasy.reactive.links.RestLink;
 import io.quarkus.resteasy.reactive.links.RestLinkType;
-import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.validation.Valid;
@@ -45,19 +44,19 @@ public class PatientResource {
     private final RegisterPatientUseCase registerPatient;
     private final ReadPatientUseCase readPatient;
     private final ListPatientUseCase listPatients;
-    private final SecurityIdentity identity;
+    private final UserId actor;
     private final PatientAssembler assembler;
 
     @Context
     UriInfo uriInfo;
 
     public PatientResource(RegisterPatientUseCase registerPatient, ReadPatientUseCase readPatient,
-                           ListPatientUseCase listPatients, SecurityIdentity identity,
+                           ListPatientUseCase listPatients, UserId actor,
                            PatientAssembler assembler) {
         this.registerPatient = registerPatient;
         this.readPatient = readPatient;
         this.listPatients = listPatients;
-        this.identity = identity;
+        this.actor = actor;
         this.assembler = assembler;
     }
 
@@ -66,8 +65,6 @@ public class PatientResource {
     public PatientPageResponse list(@QueryParam("search") String search, @QueryParam("dateOfBirth") LocalDate dateOfBirth, @QueryParam("page") @DefaultValue("0") int page,
                                     @QueryParam("size") @DefaultValue("20") int size, @QueryParam("sort") @DefaultValue("LAST_NAME") SortField sortField,
                                     @QueryParam("direction") @DefaultValue("ASC") SortDirection sortDirection) {
-        var actor = UserId.of(identity.getPrincipal()
-                .getName());
         var query = new PatientQuery(Optional.ofNullable(search), Optional.ofNullable(dateOfBirth), page, size, sortField, sortDirection);
         return assembler.toPageResponse(listPatients.listPatients(actor, query), uriInfo, query);
     }
@@ -76,8 +73,6 @@ public class PatientResource {
     @RolesAllowed({"CLERK", "ADMIN"})
     @InjectRestLinks(RestLinkType.INSTANCE)
     public Response register(@Valid RegisterPatientRequest request) {
-        var actor = UserId.of(identity.getPrincipal()
-                .getName());
         var patient = registerPatient.register(actor, request.firstName(), request.lastName(), request.dateOfBirth());
         var location = uriInfo.getAbsolutePathBuilder()
                 .path(patient.getId()
@@ -95,8 +90,6 @@ public class PatientResource {
     @RestLink(rel = "self")
     @InjectRestLinks(RestLinkType.INSTANCE)
     public HalEntityWrapper<PatientResponse> findById(@PathParam("id") UUID id) {
-        var actor = UserId.of(identity.getPrincipal()
-                .getName());
         var patient = readPatient.findById(PatientId.of(id), actor);
         return assembler.toHal(patient);
     }
