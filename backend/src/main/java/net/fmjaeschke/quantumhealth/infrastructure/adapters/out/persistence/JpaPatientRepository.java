@@ -79,8 +79,7 @@ public class JpaPatientRepository implements PatientRepository, PanacheRepositor
         var pq = find(jpql.toString(), sort, params);
         pq.page(query.page(), query.size());
         var total = pq.count();
-        var result = pq.list()
-                .stream()
+        var result = pq.stream()
                 .map(JpaPatient::toDomain)
                 .toList();
         return new PatientPage(result, total, query.page(), query.size());

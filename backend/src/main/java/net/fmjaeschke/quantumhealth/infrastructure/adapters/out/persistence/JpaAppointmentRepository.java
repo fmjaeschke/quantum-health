@@ -48,7 +48,7 @@ public class JpaAppointmentRepository
         var pq = find(jpql.toString(), params);
         pq.page(query.page(), query.pageSize());
         var total = pq.count();
-        var appointments = pq.list().stream().map(JpaAppointment::toDomain).toList();
+        var appointments = pq.stream().map(JpaAppointment::toDomain).toList();
         return new AppointmentPage(appointments, total, query.page(), query.pageSize());
     }
 
