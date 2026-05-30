@@ -1,8 +1,10 @@
 package net.fmjaeschke.quantumhealth.domain.model;
 
+import net.fmjaeschke.quantumhealth.domain.exception.InvalidAppointmentStateException;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -11,7 +13,7 @@ class AppointmentTest {
 
     static final PatientId PATIENT_ID = PatientId.generate();
     static final UserId DOCTOR = UserId.of("dr-smith");
-    static final LocalDateTime TOMORROW = LocalDateTime.now().plusDays(1);
+    static final Instant TOMORROW = Instant.now().plus(1, ChronoUnit.DAYS);
     static final String REASON = "Annual checkup";
 
     @Test
@@ -43,7 +45,7 @@ class AppointmentTest {
         var a = Appointment.schedule(PATIENT_ID, "Alice Smith", DOCTOR, "Dr. Smith", TOMORROW, REASON);
         var confirmed = a.confirm();
 
-        assertThatThrownBy(confirmed::confirm).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(confirmed::confirm).isInstanceOf(InvalidAppointmentStateException.class);
     }
 
     @Test
@@ -66,7 +68,7 @@ class AppointmentTest {
         var a = Appointment.schedule(PATIENT_ID, "Alice Smith", DOCTOR, "Dr. Smith", TOMORROW, REASON)
                 .cancel();
 
-        assertThatThrownBy(a::cancel).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(a::cancel).isInstanceOf(InvalidAppointmentStateException.class);
     }
 
     @Test
@@ -78,11 +80,32 @@ class AppointmentTest {
     }
 
     @Test
-    void isCancellable_true_for_pending_and_confirmed() {
-        var pending = Appointment.schedule(PATIENT_ID, "Alice Smith", DOCTOR, "Dr. Smith", TOMORROW, REASON);
+    void isCancellable_true_for_pending_confirmed_arrived_and_in_progress_false_otherwise() {
+        var pending    = Appointment.schedule(PATIENT_ID, "Alice Smith", DOCTOR, "Dr. Smith", TOMORROW, REASON);
+        var confirmed  = pending.confirm();
+        var arrived    = confirmed.checkIn();
+        var inProgress = confirmed.start();
+        var cancelled  = pending.cancel();
+
         assertThat(pending.isCancellable()).isTrue();
-        assertThat(pending.confirm().isCancellable()).isTrue();
-        assertThat(pending.cancel().isCancellable()).isFalse();
+        assertThat(confirmed.isCancellable()).isTrue();
+        assertThat(arrived.isCancellable()).isTrue();
+        assertThat(inProgress.isCancellable()).isTrue();
+        assertThat(cancelled.isCancellable()).isFalse();
+    }
+
+    @Test
+    void cancel_works_from_in_progress() {
+        var inProgress = Appointment.schedule(PATIENT_ID, "Alice Smith", DOCTOR, "Dr. Smith", TOMORROW, REASON)
+                .confirm().start();
+        assertThat(inProgress.cancel().getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+    }
+
+    @Test
+    void confirm_throws_when_appointment_is_cancelled() {
+        var cancelled = Appointment.schedule(PATIENT_ID, "Alice Smith", DOCTOR, "Dr. Smith", TOMORROW, REASON)
+                .cancel();
+        assertThatThrownBy(cancelled::confirm).isInstanceOf(InvalidAppointmentStateException.class);
     }
 
     @Test
@@ -94,7 +117,7 @@ class AppointmentTest {
     @Test
     void checkIn_throws_when_not_confirmed() {
         var pending = Appointment.schedule(PATIENT_ID, "Alice Smith", DOCTOR, "Dr. Smith", TOMORROW, REASON);
-        assertThatThrownBy(pending::checkIn).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(pending::checkIn).isInstanceOf(InvalidAppointmentStateException.class);
     }
 
     @Test
@@ -113,7 +136,7 @@ class AppointmentTest {
     @Test
     void start_throws_when_pending() {
         var pending = Appointment.schedule(PATIENT_ID, "Alice Smith", DOCTOR, "Dr. Smith", TOMORROW, REASON);
-        assertThatThrownBy(pending::start).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(pending::start).isInstanceOf(InvalidAppointmentStateException.class);
     }
 
     @Test

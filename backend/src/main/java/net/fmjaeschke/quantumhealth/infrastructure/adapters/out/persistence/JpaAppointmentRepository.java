@@ -2,11 +2,14 @@ package net.fmjaeschke.quantumhealth.infrastructure.adapters.out.persistence;
 
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.persistence.PersistenceException;
+import net.fmjaeschke.quantumhealth.application.exception.DuplicateAppointmentException;
 import net.fmjaeschke.quantumhealth.application.ports.out.AppointmentRepository;
 import net.fmjaeschke.quantumhealth.domain.model.Appointment;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentId;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentPage;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentQuery;
+import net.fmjaeschke.quantumhealth.domain.model.AppointmentStatus;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 
@@ -22,8 +25,22 @@ public class JpaAppointmentRepository
 
     @Override
     public Appointment save(Appointment appointment) {
-        var managed = getEntityManager().merge(JpaAppointment.from(appointment));
-        return managed.toDomain();
+        var entityManager = getEntityManager();
+        return entityManager.merge(JpaAppointment.from(appointment)).toDomain();
+    }
+
+    @Override
+    public Appointment saveNew(Appointment appointment) {
+        var entity = JpaAppointment.from(appointment);
+        try {
+            persistAndFlush(entity);
+            return entity.toDomain();
+        } catch (PersistenceException e) {
+            if (e.getCause() instanceof org.hibernate.exception.ConstraintViolationException) {
+                throw new DuplicateAppointmentException(appointment.getDoctorId(), appointment.getPatientId());
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -56,6 +73,13 @@ public class JpaAppointmentRepository
     public boolean existsByDoctorAndPatient(UserId doctorId, PatientId patientId) {
         return count("doctorId = ?1 and patientId = ?2",
                 doctorId.value(), patientId.value()) > 0;
+    }
+
+    @Override
+    public boolean existsActiveByDoctorAndPatient(UserId doctorId, PatientId patientId) {
+        return count("doctorId = ?1 and patientId = ?2 and status not in (?3, ?4)",
+                doctorId.value(), patientId.value(),
+                AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED) > 0;
     }
 
     @Override

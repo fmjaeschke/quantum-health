@@ -3,6 +3,7 @@ package net.fmjaeschke.quantumhealth.application.usecase;
 import net.fmjaeschke.quantumhealth.application.Permission;
 import net.fmjaeschke.quantumhealth.application.exception.AppointmentNotFoundException;
 import net.fmjaeschke.quantumhealth.application.exception.DoctorNotFoundException;
+import net.fmjaeschke.quantumhealth.application.exception.DuplicateAppointmentException;
 import net.fmjaeschke.quantumhealth.application.exception.PatientNotFoundException;
 import net.fmjaeschke.quantumhealth.application.ports.out.AccessPolicy;
 import net.fmjaeschke.quantumhealth.application.ports.out.AppointmentRepository;
@@ -22,8 +23,9 @@ import net.fmjaeschke.quantumhealth.domain.model.ResourceId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -37,7 +39,7 @@ class AppointmentServiceTest {
     static final UserId ACTOR = UserId.of("clerk-1");
     static final UserId DOCTOR_ID = UserId.of("dr-smith");
     static final PatientId PATIENT = PatientId.generate();
-    static final LocalDateTime TOMORROW = LocalDateTime.now().plusDays(1);
+    static final Instant TOMORROW = Instant.now().plus(1, ChronoUnit.DAYS);
     static final String REASON = "Annual checkup";
 
     static final Patient ALICE = Patient.reconstitute(PATIENT, "Alice", "Smith", LocalDate.of(1990, 1, 1));
@@ -75,6 +77,16 @@ class AppointmentServiceTest {
 
         assertThatThrownBy(() -> service.schedule(ACTOR, PATIENT, DOCTOR_ID, TOMORROW, REASON))
                 .isInstanceOf(DoctorNotFoundException.class);
+    }
+
+    @Test
+    void schedule_throws_DuplicateAppointmentException_when_active_booking_exists() {
+        var repo = new FakeRepo();
+        repo.activeExists = true;
+        var service = service(repo, false);
+
+        assertThatThrownBy(() -> service.schedule(ACTOR, PATIENT, DOCTOR_ID, TOMORROW, REASON))
+                .isInstanceOf(DuplicateAppointmentException.class);
     }
 
     @Test
@@ -216,9 +228,17 @@ class AppointmentServiceTest {
         final List<Appointment> store;
         final List<Appointment> saved = new ArrayList<>();
         AppointmentQuery lastQuery;
+        boolean activeExists = false;
 
         FakeRepo(Appointment... appointments) {
             this.store = new ArrayList<>(List.of(appointments));
+        }
+
+        @Override
+        public Appointment saveNew(Appointment appointment) {
+            saved.add(appointment);
+            store.add(appointment);
+            return appointment;
         }
 
         @Override
@@ -250,6 +270,11 @@ class AppointmentServiceTest {
         }
 
         @Override
+        public boolean existsActiveByDoctorAndPatient(UserId d, PatientId p) {
+            return activeExists;
+        }
+
+        @Override
         public Set<PatientId> getPatientIdsByDoctor(UserId d) {
             return Set.of();
         }
@@ -264,6 +289,7 @@ class AppointmentServiceTest {
 
         @Override
         public void check(Permission permission, UserId actor, ResourceId resource) {
+            // Not implemented
         }
 
         @Override
@@ -272,7 +298,7 @@ class AppointmentServiceTest {
         }
 
         @Override
-        public boolean isDoctor(UserId actor) {
+        public boolean isDoctor() {
             return isDoctor;
         }
     }

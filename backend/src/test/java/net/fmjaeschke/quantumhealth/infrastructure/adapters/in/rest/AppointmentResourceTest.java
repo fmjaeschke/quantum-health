@@ -5,10 +5,12 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
 import net.fmjaeschke.quantumhealth.application.exception.AppointmentNotFoundException;
+import net.fmjaeschke.quantumhealth.application.exception.DoctorNotFoundException;
+import net.fmjaeschke.quantumhealth.application.exception.DuplicateAppointmentException;
+import net.fmjaeschke.quantumhealth.domain.exception.InvalidAppointmentStateException;
 import net.fmjaeschke.quantumhealth.application.ports.in.CancelAppointmentUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.CheckInUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.ConfirmAppointmentUseCase;
-import net.fmjaeschke.quantumhealth.application.ports.in.FindDoctorsUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.ListAppointmentsUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.ReadAppointmentUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.ScheduleAppointmentUseCase;
@@ -21,7 +23,10 @@ import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,7 +45,8 @@ class AppointmentResourceTest {
 
     static final UUID APPT_ID = UUID.fromString("660e8400-e29b-41d4-a716-446655440001");
     static final UUID PATIENT_UUID = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
-    static final LocalDateTime TOMORROW = LocalDateTime.now().plusDays(1);
+    static final Instant TOMORROW = Instant.now().plus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS);
+    static final OffsetDateTime TOMORROW_OFFSET = TOMORROW.atOffset(ZoneOffset.UTC);
     static final String REASON = "Annual checkup";
 
     static final Appointment PENDING = Appointment.reconstitute(
@@ -90,7 +96,6 @@ class AppointmentResourceTest {
     @InjectMock CancelAppointmentUseCase cancelMock;
     @InjectMock CheckInUseCase checkInMock;
     @InjectMock StartEncounterUseCase startMock;
-    @InjectMock FindDoctorsUseCase findDoctorsMock;
 
     @Test
     @TestSecurity(user = "clerk-1", roles = {"CLERK"})
@@ -101,7 +106,7 @@ class AppointmentResourceTest {
                 .body("""
                         {"patientId":"%s","doctorId":"dr-smith",
                          "scheduledAt":"%s","reason":"%s"}
-                        """.formatted(PATIENT_UUID, TOMORROW, REASON))
+                        """.formatted(PATIENT_UUID, TOMORROW_OFFSET, REASON))
                 .when()
                 .post("/appointments")
                 .then()
@@ -118,7 +123,7 @@ class AppointmentResourceTest {
     @Test
     @TestSecurity(user = "clerk-1", roles = {"CLERK"})
     void schedule_with_past_date_returns_400() {
-        var pastDate = LocalDateTime.now().minusDays(1);
+        var pastDate = OffsetDateTime.now(ZoneOffset.UTC).minusDays(1);
 
         given().contentType(ContentType.JSON)
                 .body("""
@@ -138,7 +143,7 @@ class AppointmentResourceTest {
                 .body("""
                         {"patientId":"%s","doctorId":"dr-smith",
                          "scheduledAt":"%s","reason":"%s"}
-                        """.formatted(PATIENT_UUID, TOMORROW, REASON))
+                        """.formatted(PATIENT_UUID, TOMORROW_OFFSET, REASON))
                 .when()
                 .post("/appointments")
                 .then()
@@ -316,7 +321,8 @@ class AppointmentResourceTest {
                 .statusCode(200)
                 .body("status", equalTo("ARRIVED"))
                 .body("_links", not(hasKey("check-in")))
-                .body("_links", not(hasKey("start")));
+                .body("_links", not(hasKey("start")))
+                .body("_links", hasKey("cancel"));
     }
 
     @Test
@@ -339,7 +345,7 @@ class AppointmentResourceTest {
                 .statusCode(200)
                 .body("status", equalTo("IN_PROGRESS"))
                 .body("_links", not(hasKey("start")))
-                .body("_links", not(hasKey("cancel")));
+                .body("_links", hasKey("cancel"));
     }
 
     @Test
@@ -353,9 +359,57 @@ class AppointmentResourceTest {
 
     @Test
     @TestSecurity(user = "clerk-1", roles = {"CLERK"})
+    void schedule_duplicate_active_booking_returns_409() {
+        when(scheduleMock.schedule(any(), any(), any(), any(), any()))
+                .thenThrow(new DuplicateAppointmentException(UserId.of("dr-smith"), PatientId.of(PATIENT_UUID)));
+
+        given().contentType(ContentType.JSON)
+                .body("""
+                        {"patientId":"%s","doctorId":"dr-smith",
+                         "scheduledAt":"%s","reason":"%s"}
+                        """.formatted(PATIENT_UUID, TOMORROW_OFFSET, REASON))
+                .when()
+                .post("/appointments")
+                .then()
+                .statusCode(409);
+    }
+
+    @Test
+    @TestSecurity(user = "clerk-1", roles = {"CLERK"})
+    void schedule_with_unknown_doctor_returns_404() {
+        when(scheduleMock.schedule(any(), any(), any(), any(), any()))
+                .thenThrow(new DoctorNotFoundException(UserId.of("unknown-doctor")));
+
+        given().contentType(ContentType.JSON)
+                .body("""
+                        {"patientId":"%s","doctorId":"unknown-doctor",
+                         "scheduledAt":"%s","reason":"%s"}
+                        """.formatted(PATIENT_UUID, TOMORROW_OFFSET, REASON))
+                .when()
+                .post("/appointments")
+                .then()
+                .statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "dr-smith", roles = {"DOCTOR"})
+    void pending_appointment_has_no_start_link_for_doctor() {
+        when(readMock.findById(eq(AppointmentId.of(APPT_ID)), any())).thenReturn(PENDING);
+
+        given().when()
+                .get("/appointments/" + APPT_ID)
+                .then()
+                .statusCode(200)
+                .body("_links", not(hasKey("start")))
+                .body("_links", not(hasKey("confirm")))
+                .body("_links", not(hasKey("check-in")));
+    }
+
+    @Test
+    @TestSecurity(user = "clerk-1", roles = {"CLERK"})
     void invalid_transition_returns_409() {
         when(confirmMock.confirm(eq(AppointmentId.of(APPT_ID)), any()))
-                .thenThrow(new IllegalStateException("Can only confirm PENDING appointments, current status: CONFIRMED"));
+                .thenThrow(new InvalidAppointmentStateException("confirm", AppointmentStatus.CONFIRMED));
 
         given().when()
                 .post("/appointments/" + APPT_ID + "/confirm")

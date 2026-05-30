@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0005-add-active-appointment-unique-constraint
+      author: quantum
+      changes:
+        - createIndex:
+            indexName: uq_active_appointment
+            tableName: qh_appointment
+            unique: true
+            # noinspection YAMLSchemaValidation
+            where: "status IN ('PENDING', 'CONFIRMED', 'ARRIVED', 'IN_PROGRESS')"
+            columns:
+              - column:
+                  name: doctor_id
+              - column:
+                  name: patient_id

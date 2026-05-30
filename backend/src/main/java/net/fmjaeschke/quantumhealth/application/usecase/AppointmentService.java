@@ -4,6 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import net.fmjaeschke.quantumhealth.application.exception.AppointmentNotFoundException;
 import net.fmjaeschke.quantumhealth.application.exception.DoctorNotFoundException;
+import net.fmjaeschke.quantumhealth.application.exception.DuplicateAppointmentException;
 import net.fmjaeschke.quantumhealth.application.exception.PatientNotFoundException;
 import net.fmjaeschke.quantumhealth.application.ports.in.CancelAppointmentUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.CheckInUseCase;
@@ -25,7 +26,7 @@ import net.fmjaeschke.quantumhealth.domain.model.Doctor;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -53,13 +54,16 @@ public class AppointmentService implements
 
     @Override
     public Appointment schedule(UserId actor, PatientId patientId, UserId doctorId,
-                                LocalDateTime scheduledAt, String reason) {
+                                Instant scheduledAt, String reason) {
         var patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new PatientNotFoundException(patientId));
         var doctor = doctorPort.findById(doctorId)
                 .orElseThrow(() -> new DoctorNotFoundException(doctorId));
+        if (repository.existsActiveByDoctorAndPatient(doctorId, patientId)) {
+            throw new DuplicateAppointmentException(doctorId, patientId);
+        }
         var patientName = patient.getFirstName() + " " + patient.getLastName();
-        return repository.save(
+        return repository.saveNew(
                 Appointment.schedule(patientId, patientName, doctorId, doctor.displayName(), scheduledAt, reason));
     }
 
@@ -76,7 +80,7 @@ public class AppointmentService implements
 
     @Override
     public AppointmentPage list(AppointmentQuery query, UserId actor) {
-        AppointmentQuery effective = accessPolicy.isDoctor(actor)
+        AppointmentQuery effective = accessPolicy.isDoctor()
                 ? new AppointmentQuery(query.statusFilter(), Optional.of(actor), query.page(), query.pageSize())
                 : query;
         return repository.findAll(effective);

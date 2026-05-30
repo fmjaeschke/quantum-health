@@ -12,7 +12,7 @@ import net.fmjaeschke.quantumhealth.domain.model.AppointmentStatus;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -35,7 +35,7 @@ public class JpaAppointment {
     public String doctorName;
 
     @Column(name = "scheduled_at", nullable = false)
-    public LocalDateTime scheduledAt;
+    public Instant scheduledAt;
 
     @Column(name = "reason", nullable = false, length = 500)
     public String reason;

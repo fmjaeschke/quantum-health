@@ -47,7 +47,7 @@ public class PatientService implements RegisterPatientUseCase, ReadPatientUseCas
 
     @Override
     public PatientPage listPatients(UserId actor, PatientQuery query) {
-        if (accessPolicy.isDoctor(actor)) {
+        if (accessPolicy.isDoctor()) {
             return patients.findByDoctor(actor, query);
         }
         return patients.findAll(query);

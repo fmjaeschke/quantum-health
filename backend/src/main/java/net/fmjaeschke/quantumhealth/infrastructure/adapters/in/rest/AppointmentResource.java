@@ -54,6 +54,7 @@ public class AppointmentResource {
     @Context
     UriInfo uriInfo;
 
+    @SuppressWarnings("java:S107")
     public AppointmentResource(ScheduleAppointmentUseCase scheduleAppointment,
                                 ReadAppointmentUseCase readAppointment,
                                 ListAppointmentsUseCase listAppointments,
@@ -82,7 +83,7 @@ public class AppointmentResource {
                 actor,
                 PatientId.of(request.patientId()),
                 UserId.of(request.doctorId()),
-                request.scheduledAt(),
+                request.scheduledAt().toInstant(),
                 request.reason());
         var location = uriInfo.getAbsolutePathBuilder()
                 .path(appointment.getId().value().toString())

@@ -14,7 +14,7 @@ import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,17 +28,18 @@ class JpaAppointmentRepositoryTest {
     AppointmentRepository repository;
 
     private static final UUID ALICE_UUID = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+    private static final UUID BOB_UUID   = UUID.fromString("550e8400-e29b-41d4-a716-446655440001");
     private static final UUID APPT_1_UUID = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
 
     @Test
     @DataSet("datasets/appointment.yml")
     @Transactional
     void save_persists_new_appointment_with_reason() {
-        var patientId = PatientId.of(ALICE_UUID);
+        var patientId = PatientId.of(BOB_UUID);
         var appointment = Appointment.schedule(
-                patientId, "Alice Smith",
+                patientId, "Bob Jones",
                 UserId.of("doctor-1"), "Dr. One",
-                LocalDateTime.of(2025, 7, 1, 9, 0),
+                Instant.parse("2025-07-01T09:00:00Z"),
                 "Routine screening");
 
         var saved = repository.save(appointment);
@@ -61,6 +62,32 @@ class JpaAppointmentRepositoryTest {
         assertThat(found.get().getPatientName()).isEqualTo("Alice Smith");
         assertThat(found.get().getReason()).isEqualTo("Annual checkup");
         assertThat(found.get().getStatus()).isEqualTo(AppointmentStatus.PENDING);
+    }
+
+    @Test
+    @DataSet("datasets/appointment.yml")
+    void findById_reads_timezone_naive_seeded_timestamp_as_utc() {
+        // Dataset stores "2025-06-01 10:00:00" (no timezone). After migration 0004
+        // converts the column to TIMESTAMPTZ ... AT TIME ZONE 'UTC', that
+        // value must be read back as 10:00 UTC — not shifted by the server timezone.
+        var found = repository.findById(AppointmentId.of(APPT_1_UUID)).orElseThrow();
+
+        assertThat(found.getScheduledAt()).isEqualTo(Instant.parse("2025-06-01T10:00:00Z"));
+    }
+
+    @Test
+    @DataSet("datasets/appointment.yml")
+    @Transactional
+    void save_round_trips_scheduledAt_as_exact_utc_instant() {
+        var expected = Instant.parse("2026-03-15T14:30:00Z");
+        var appointment = Appointment.schedule(
+                PatientId.of(BOB_UUID), "Bob Jones",
+                UserId.of("doctor-1"), "Dr. One",
+                expected, "TZ round-trip check");
+
+        var loaded = repository.findById(repository.save(appointment).getId()).orElseThrow();
+
+        assertThat(loaded.getScheduledAt()).isEqualTo(expected);
     }
 
     @Test
@@ -92,6 +119,37 @@ class JpaAppointmentRepositoryTest {
         var patientIds = repository.getPatientIdsByDoctor(UserId.of("doctor-1"));
 
         assertThat(patientIds).containsExactlyInAnyOrder(PatientId.of(ALICE_UUID));
+    }
+
+    @Test
+    @DataSet("datasets/appointment.yml")
+    @Transactional
+    void save_updates_existing_appointment_status() {
+        var id = AppointmentId.of(APPT_1_UUID);
+        var appointment = repository.findById(id).orElseThrow();
+        var confirmed = appointment.confirm();
+
+        repository.save(confirmed);
+
+        var updated = repository.findById(id);
+        assertThat(updated).isPresent();
+        assertThat(updated.get().getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+    }
+
+    @Test
+    @DataSet("datasets/appointment-active-check.yml")
+    void existsActiveByDoctorAndPatient_returns_true_for_active_appointment() {
+        var exists = repository.existsActiveByDoctorAndPatient(
+                UserId.of("doctor-active"), PatientId.of(ALICE_UUID));
+        assertThat(exists).isTrue();
+    }
+
+    @Test
+    @DataSet("datasets/appointment-active-check.yml")
+    void existsActiveByDoctorAndPatient_returns_false_when_only_cancelled() {
+        var exists = repository.existsActiveByDoctorAndPatient(
+                UserId.of("doctor-inactive"), PatientId.of(ALICE_UUID));
+        assertThat(exists).isFalse();
     }
 
     // --- findAll(AppointmentQuery) ---

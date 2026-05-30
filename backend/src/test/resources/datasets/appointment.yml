@@ -3,6 +3,10 @@ qh_patient:
     first_name: "Alice"
     last_name: "Smith"
     date_of_birth: "1990-05-15"
+  - id: "550e8400-e29b-41d4-a716-446655440001"
+    first_name: "Bob"
+    last_name: "Jones"
+    date_of_birth: "1985-03-10"
 
 qh_appointment:
   - id: "aaaaaaaa-0000-0000-0000-000000000001"
@@ -10,7 +14,7 @@ qh_appointment:
     patient_name: "Alice Smith"
     doctor_id: "doctor-1"
     doctor_name: "Dr. One"
-    scheduled_at: "2025-06-01 10:00:00"
+    scheduled_at: "2025-06-01T10:00:00.000+00:00"
     reason: "Annual checkup"
     status: "PENDING"
   - id: "aaaaaaaa-0000-0000-0000-000000000002"
@@ -18,6 +22,6 @@ qh_appointment:
     patient_name: "Alice Smith"
     doctor_id: "doctor-2"
     doctor_name: "Dr. Two"
-    scheduled_at: "2025-06-02 11:00:00"
+    scheduled_at: "2025-06-02T11:00:00.000+00:00"
     reason: "Follow-up visit"
     status: "CONFIRMED"

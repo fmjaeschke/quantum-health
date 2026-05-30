@@ -1,6 +1,8 @@
 package net.fmjaeschke.quantumhealth.domain.model;
 
-import java.time.LocalDateTime;
+import net.fmjaeschke.quantumhealth.domain.exception.InvalidAppointmentStateException;
+
+import java.time.Instant;
 import java.util.Objects;
 
 public final class Appointment {
@@ -10,12 +12,13 @@ public final class Appointment {
     private final String patientName;
     private final UserId doctorId;
     private final String doctorName;
-    private final LocalDateTime scheduledAt;
+    private final Instant scheduledAt;
     private final String reason;
     private final AppointmentStatus status;
 
+    @SuppressWarnings("java:S107")
     private Appointment(AppointmentId id, PatientId patientId, String patientName,
-                        UserId doctorId, String doctorName, LocalDateTime scheduledAt,
+                        UserId doctorId, String doctorName, Instant scheduledAt,
                         String reason, AppointmentStatus status) {
         this.id          = Objects.requireNonNull(id,          "id");
         this.patientId   = Objects.requireNonNull(patientId,   "patientId");
@@ -29,42 +32,43 @@ public final class Appointment {
 
     public static Appointment schedule(PatientId patientId, String patientName,
                                        UserId doctorId, String doctorName,
-                                       LocalDateTime scheduledAt, String reason) {
+                                       Instant scheduledAt, String reason) {
         return new Appointment(AppointmentId.generate(), patientId, patientName,
                 doctorId, doctorName, scheduledAt, reason, AppointmentStatus.PENDING);
     }
 
+    @SuppressWarnings("java:S107")
     public static Appointment reconstitute(AppointmentId id, PatientId patientId,
                                            String patientName, UserId doctorId,
-                                           String doctorName, LocalDateTime scheduledAt,
+                                           String doctorName, Instant scheduledAt,
                                            String reason, AppointmentStatus status) {
         return new Appointment(id, patientId, patientName, doctorId, doctorName, scheduledAt, reason, status);
     }
 
     public Appointment confirm() {
         if (!isConfirmable()) {
-            throw new IllegalStateException("Can only confirm PENDING appointments, current status: " + status);
+            throw new InvalidAppointmentStateException("confirm", status);
         }
         return new Appointment(id, patientId, patientName, doctorId, doctorName, scheduledAt, reason, AppointmentStatus.CONFIRMED);
     }
 
     public Appointment cancel() {
         if (!isCancellable()) {
-            throw new IllegalStateException("Cannot cancel appointment in status: " + status);
+            throw new InvalidAppointmentStateException("cancel", status);
         }
         return new Appointment(id, patientId, patientName, doctorId, doctorName, scheduledAt, reason, AppointmentStatus.CANCELLED);
     }
 
     public Appointment checkIn() {
         if (!isCheckInnable()) {
-            throw new IllegalStateException("Can only check in CONFIRMED appointments, current status: " + status);
+            throw new InvalidAppointmentStateException("check-in", status);
         }
         return new Appointment(id, patientId, patientName, doctorId, doctorName, scheduledAt, reason, AppointmentStatus.ARRIVED);
     }
 
     public Appointment start() {
         if (!isStartable()) {
-            throw new IllegalStateException("Can only start CONFIRMED or ARRIVED appointments, current status: " + status);
+            throw new InvalidAppointmentStateException("start", status);
         }
         return new Appointment(id, patientId, patientName, doctorId, doctorName, scheduledAt, reason, AppointmentStatus.IN_PROGRESS);
     }
@@ -74,7 +78,10 @@ public final class Appointment {
     }
 
     public boolean isCancellable() {
-        return status == AppointmentStatus.PENDING || status == AppointmentStatus.CONFIRMED;
+        return status == AppointmentStatus.PENDING
+                || status == AppointmentStatus.CONFIRMED
+                || status == AppointmentStatus.ARRIVED
+                || status == AppointmentStatus.IN_PROGRESS;
     }
 
     public boolean isCheckInnable() {
@@ -90,7 +97,7 @@ public final class Appointment {
     public String getPatientName() { return patientName; }
     public UserId getDoctorId() { return doctorId; }
     public String getDoctorName() { return doctorName; }
-    public LocalDateTime getScheduledAt() { return scheduledAt; }
+    public Instant getScheduledAt() { return scheduledAt; }
     public String getReason() { return reason; }
     public AppointmentStatus getStatus() { return status; }
 }

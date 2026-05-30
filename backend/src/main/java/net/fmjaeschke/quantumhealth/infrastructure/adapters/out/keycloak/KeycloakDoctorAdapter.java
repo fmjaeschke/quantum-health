@@ -1,6 +1,7 @@
 package net.fmjaeschke.quantumhealth.infrastructure.adapters.out.keycloak;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.NotFoundException;
 import net.fmjaeschke.quantumhealth.application.ports.out.DoctorPort;
 import net.fmjaeschke.quantumhealth.domain.model.Doctor;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
@@ -37,7 +38,7 @@ public class KeycloakDoctorAdapter implements DoctorPort {
             var u = keycloak.realm(realm).users().get(id.value()).toRepresentation();
             if (u == null) return Optional.empty();
             return Optional.of(new Doctor(UserId.of(u.getId()), u.getFirstName() + " " + u.getLastName()));
-        } catch (Exception _) {
+        } catch (NotFoundException _) {
             return Optional.empty();
         }
     }

@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0004-alter-appointment-scheduled-at-timezone
+      author: quantum
+      changes:
+        - modifyDataType:
+            tableName: qh_appointment
+            columnName: scheduled_at
+            newDataType: TIMESTAMP WITH TIME ZONE

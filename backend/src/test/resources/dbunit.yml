@@ -1,1 +1,3 @@
 caseInsensitiveStrategy: LOWERCASE
+properties:
+  datatypeFactory: !!net.fmjaeschke.quantumhealth.infrastructure.adapters.out.persistence.CustomPostgresqlDataTypeFactory {}

@@ -54,13 +54,13 @@ class QuarkusAccessPolicyTest {
     @Test
     @TestSecurity(user = "doctor-1", roles = {"DOCTOR"})
     void isDoctor_returns_true_for_doctor_role() {
-        assertThat(accessPolicy.isDoctor(UserId.of("doctor-1"))).isTrue();
+        assertThat(accessPolicy.isDoctor()).isTrue();
     }
 
     @Test
     @TestSecurity(user = "clerk-1", roles = {"CLERK"})
     void isDoctor_returns_false_for_non_doctor_role() {
-        assertThat(accessPolicy.isDoctor(UserId.of("clerk-1"))).isFalse();
+        assertThat(accessPolicy.isDoctor()).isFalse();
     }
 
     @Test

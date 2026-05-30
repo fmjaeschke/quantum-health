@@ -95,6 +95,7 @@ class PatientServiceTest {
     static class AlwaysAllowPolicy implements AccessPolicy {
         @Override
         public void check(Permission p, UserId actor, ResourceId resource) {
+            // Not implemented
         }
 
         @Override
@@ -103,7 +104,7 @@ class PatientServiceTest {
         }
 
         @Override
-        public boolean isDoctor(UserId actor) {
+        public boolean isDoctor() {
             return false;
         }
     }
@@ -120,7 +121,7 @@ class PatientServiceTest {
         }
 
         @Override
-        public boolean isDoctor(UserId actor) {
+        public boolean isDoctor() {
             return false;
         }
     }
@@ -128,6 +129,7 @@ class PatientServiceTest {
     static class DoctorPolicy implements AccessPolicy {
         @Override
         public void check(Permission p, UserId actor, ResourceId resource) {
+            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -136,7 +138,7 @@ class PatientServiceTest {
         }
 
         @Override
-        public boolean isDoctor(UserId actor) {
+        public boolean isDoctor() {
             return true;
         }
     }

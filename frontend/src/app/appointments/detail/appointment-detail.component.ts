@@ -53,7 +53,7 @@ import { AppointmentStatus } from '../appointment.model';
           @if (actionLinks().length > 0) {
             <div class="appointment-detail__actions">
               @for (entry of actionLinks(); track entry[0]) {
-                <p-button [label]="entry[0]" (click)="store.transition(entry[0])"></p-button>
+                <p-button [label]="labelFor(entry[0])" (click)="store.transition(entry[0])"></p-button>
               }
             </div>
           }
@@ -79,11 +79,22 @@ export class AppointmentDetailComponent implements OnInit {
   protected readonly store = inject(AppointmentStore);
   protected readonly router = inject(Router);
 
+  private readonly LABEL_MAP: Record<string, string> = {
+    'confirm': 'Confirm',
+    'check-in': 'Check In',
+    'start': 'Start Encounter',
+    'cancel': 'Cancel',
+  };
+
   protected readonly actionLinks = computed(() => {
     const links = this.store.currentAppointment()?._links;
     if (!links) return [];
     return Object.entries(links).filter(([rel]) => rel !== 'self');
   });
+
+  protected labelFor(rel: string): string {
+    return this.LABEL_MAP[rel] ?? rel.charAt(0).toUpperCase() + rel.slice(1);
+  }
 
   ngOnInit(): void {
     this.store.loadAppointment(this.id);

@@ -12,8 +12,10 @@ import java.util.Set;
 
 public interface AppointmentRepository {
     boolean existsByDoctorAndPatient(UserId doctorId, PatientId patientId);
+    boolean existsActiveByDoctorAndPatient(UserId doctorId, PatientId patientId);
     Set<PatientId> getPatientIdsByDoctor(UserId doctorId);
     Appointment save(Appointment appointment);
+    Appointment saveNew(Appointment appointment);
     Optional<Appointment> findById(AppointmentId id);
     AppointmentPage findAll(AppointmentQuery query);
 }

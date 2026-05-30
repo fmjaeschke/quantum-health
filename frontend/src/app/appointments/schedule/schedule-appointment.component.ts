@@ -129,6 +129,10 @@ export class ScheduleAppointmentComponent implements OnInit {
     }
     const { patientId, doctorId, scheduledAt, reason } = this.form.getRawValue();
     const date = scheduledAt as Date;
+    const offsetMinutes = -date.getTimezoneOffset();
+    const sign = offsetMinutes >= 0 ? '+' : '-';
+    const absMinutes = Math.abs(offsetMinutes);
+    const offsetStr = `${sign}${String(Math.floor(absMinutes / 60)).padStart(2, '0')}:${String(absMinutes % 60).padStart(2, '0')}`;
     const dateStr = [
       date.getFullYear(),
       String(date.getMonth() + 1).padStart(2, '0'),
@@ -137,11 +141,12 @@ export class ScheduleAppointmentComponent implements OnInit {
     const timeStr = [
       String(date.getHours()).padStart(2, '0'),
       String(date.getMinutes()).padStart(2, '0'),
+      '00',
     ].join(':');
     await this.store.scheduleAppointment({
       patientId: patientId!,
       doctorId: doctorId!,
-      scheduledAt: `${dateStr}T${timeStr}`,
+      scheduledAt: `${dateStr}T${timeStr}${offsetStr}`,
       reason: reason!,
     });
   }

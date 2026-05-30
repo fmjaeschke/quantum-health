@@ -5,3 +5,7 @@ databaseChangeLog:
       file: db/changelog/0002-create-appointment.yaml
   - include:
       file: db/changelog/0003-add-appointment-patient-fk.yaml
+  - include:
+      file: db/changelog/0004-alter-appointment-scheduled-at-timezone.yaml
+  - include:
+      file: db/changelog/0005-add-active-appointment-unique-constraint.yaml

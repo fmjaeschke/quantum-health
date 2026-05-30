@@ -18,5 +18,5 @@ public interface AccessPolicy {
     /**
      * Returns true if the actor holds the DOCTOR role.
      */
-    boolean isDoctor(UserId actor);
+    boolean isDoctor();
 }
