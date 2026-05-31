@@ -4,7 +4,9 @@ import com.github.database.rider.cdi.api.DBRider;
 import com.github.database.rider.core.api.dataset.DataSet;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
+import net.fmjaeschke.quantumhealth.application.exception.DuplicateAppointmentException;
 import net.fmjaeschke.quantumhealth.application.ports.out.AppointmentRepository;
 import net.fmjaeschke.quantumhealth.domain.model.Appointment;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentId;
@@ -19,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @QuarkusTest
 @DBRider
@@ -134,6 +137,22 @@ class JpaAppointmentRepositoryTest {
         var updated = repository.findById(id);
         assertThat(updated).isPresent();
         assertThat(updated.get().getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+    }
+
+    @Test
+    @DataSet("datasets/appointment.yml")
+    @Transactional
+    void save_new_rethrows_fk_constraint_violation_as_persistence_exception_not_duplicate() {
+        var nonExistentPatient = PatientId.of(UUID.randomUUID());
+        var appointment = Appointment.schedule(
+                nonExistentPatient, "Ghost Patient",
+                UserId.of("doctor-1"), "Dr. One",
+                Instant.parse("2026-01-01T10:00:00Z"),
+                "FK violation test");
+
+        assertThatThrownBy(() -> repository.saveNew(appointment))
+                .isNotInstanceOf(DuplicateAppointmentException.class)
+                .isInstanceOf(PersistenceException.class);
     }
 
     @Test

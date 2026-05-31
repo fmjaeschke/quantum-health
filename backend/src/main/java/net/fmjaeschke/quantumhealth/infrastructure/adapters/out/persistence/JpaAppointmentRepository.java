@@ -3,6 +3,7 @@ package net.fmjaeschke.quantumhealth.infrastructure.adapters.out.persistence;
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.PersistenceException;
+import org.hibernate.exception.ConstraintViolationException;
 import net.fmjaeschke.quantumhealth.application.exception.DuplicateAppointmentException;
 import net.fmjaeschke.quantumhealth.application.ports.out.AppointmentRepository;
 import net.fmjaeschke.quantumhealth.domain.model.Appointment;
@@ -23,10 +24,11 @@ import java.util.stream.Collectors;
 public class JpaAppointmentRepository
         implements AppointmentRepository, PanacheRepositoryBase<JpaAppointment, UUID> {
 
+    private static final String UQ_ACTIVE_APPOINTMENT = "uq_active_appointment";
+
     @Override
     public Appointment save(Appointment appointment) {
-        var entityManager = getEntityManager();
-        return entityManager.merge(JpaAppointment.from(appointment)).toDomain();
+        return getEntityManager().merge(JpaAppointment.from(appointment)).toDomain();
     }
 
     @Override
@@ -36,7 +38,8 @@ public class JpaAppointmentRepository
             persistAndFlush(entity);
             return entity.toDomain();
         } catch (PersistenceException e) {
-            if (e.getCause() instanceof org.hibernate.exception.ConstraintViolationException) {
+            if (e.getCause() instanceof ConstraintViolationException cve
+                    && UQ_ACTIVE_APPOINTMENT.equals(cve.getConstraintName())) {
                 throw new DuplicateAppointmentException(appointment.getDoctorId(), appointment.getPatientId());
             }
             throw e;
@@ -77,9 +80,9 @@ public class JpaAppointmentRepository
 
     @Override
     public boolean existsActiveByDoctorAndPatient(UserId doctorId, PatientId patientId) {
-        return count("doctorId = ?1 and patientId = ?2 and status not in (?3, ?4)",
+        return count("doctorId = ?1 and patientId = ?2 and status in ?3",
                 doctorId.value(), patientId.value(),
-                AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED) > 0;
+                AppointmentStatus.ACTIVE_STATUSES) > 0;
     }
 
     @Override

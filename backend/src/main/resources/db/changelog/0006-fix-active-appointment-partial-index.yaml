@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0006-fix-active-appointment-partial-index
+      author: quantum
+      changes:
+        - sql:
+            # Recreate as a true partial index — Liquibase's createIndex/where is ignored by PostgreSQL.
+            # This index must stay in sync with AppointmentStatus.ACTIVE_STATUSES.
+            sql: >-
+              DROP INDEX IF EXISTS uq_active_appointment;
+              CREATE UNIQUE INDEX uq_active_appointment
+                ON qh_appointment (doctor_id, patient_id)
+                WHERE status IN ('PENDING', 'CONFIRMED', 'ARRIVED', 'IN_PROGRESS');

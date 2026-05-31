@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/0004-alter-appointment-scheduled-at-timezone.yaml
   - include:
       file: db/changelog/0005-add-active-appointment-unique-constraint.yaml
+  - include:
+      file: db/changelog/0006-fix-active-appointment-partial-index.yaml
