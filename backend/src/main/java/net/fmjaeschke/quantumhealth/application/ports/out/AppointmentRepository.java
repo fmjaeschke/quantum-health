@@ -12,9 +12,17 @@ import java.util.Set;
 
 public interface AppointmentRepository {
     boolean existsByDoctorAndPatient(UserId doctorId, PatientId patientId);
-    boolean existsActiveByDoctorAndPatient(UserId doctorId, PatientId patientId);
     Set<PatientId> getPatientIdsByDoctor(UserId doctorId);
     Appointment save(Appointment appointment);
+    /**
+     * Persists a new appointment.
+     *
+     * <p><strong>Contract:</strong> implementations MUST enforce that no active appointment
+     * already exists for the same doctor–patient pair. If such a booking exists, the
+     * implementation must throw {@link net.fmjaeschke.quantumhealth.application.exception.DuplicateAppointmentException}.
+     * The application layer relies on this guarantee and does not perform a pre-check
+     * (which would introduce a TOCTOU race under concurrent requests).
+     */
     Appointment saveNew(Appointment appointment);
     Optional<Appointment> findById(AppointmentId id);
     AppointmentPage findAll(AppointmentQuery query);

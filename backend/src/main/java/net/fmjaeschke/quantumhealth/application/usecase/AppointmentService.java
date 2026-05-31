@@ -4,7 +4,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import net.fmjaeschke.quantumhealth.application.exception.AppointmentNotFoundException;
 import net.fmjaeschke.quantumhealth.application.exception.DoctorNotFoundException;
-import net.fmjaeschke.quantumhealth.application.exception.DuplicateAppointmentException;
 import net.fmjaeschke.quantumhealth.application.exception.PatientNotFoundException;
 import net.fmjaeschke.quantumhealth.application.ports.in.CancelAppointmentUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.CheckInUseCase;
@@ -59,9 +58,6 @@ public class AppointmentService implements
                 .orElseThrow(() -> new PatientNotFoundException(patientId));
         var doctor = doctorPort.findById(doctorId)
                 .orElseThrow(() -> new DoctorNotFoundException(doctorId));
-        if (repository.existsActiveByDoctorAndPatient(doctorId, patientId)) {
-            throw new DuplicateAppointmentException(doctorId, patientId);
-        }
         var patientName = patient.getFirstName() + " " + patient.getLastName();
         return repository.saveNew(
                 Appointment.schedule(patientId, patientName, doctorId, doctor.displayName(), scheduledAt, reason));

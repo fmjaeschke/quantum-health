@@ -10,7 +10,6 @@ import net.fmjaeschke.quantumhealth.domain.model.Appointment;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentId;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentPage;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentQuery;
-import net.fmjaeschke.quantumhealth.domain.model.AppointmentStatus;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 
@@ -37,6 +36,11 @@ public class JpaAppointmentRepository
         try {
             persistAndFlush(entity);
             return entity.toDomain();
+        } catch (ConstraintViolationException e) {
+            if (UQ_ACTIVE_APPOINTMENT.equals(e.getConstraintName())) {
+                throw new DuplicateAppointmentException(appointment.getDoctorId(), appointment.getPatientId());
+            }
+            throw e;
         } catch (PersistenceException e) {
             if (e.getCause() instanceof ConstraintViolationException cve
                     && UQ_ACTIVE_APPOINTMENT.equals(cve.getConstraintName())) {
@@ -76,13 +80,6 @@ public class JpaAppointmentRepository
     public boolean existsByDoctorAndPatient(UserId doctorId, PatientId patientId) {
         return count("doctorId = ?1 and patientId = ?2",
                 doctorId.value(), patientId.value()) > 0;
-    }
-
-    @Override
-    public boolean existsActiveByDoctorAndPatient(UserId doctorId, PatientId patientId) {
-        return count("doctorId = ?1 and patientId = ?2 and status in ?3",
-                doctorId.value(), patientId.value(),
-                AppointmentStatus.ACTIVE_STATUSES) > 0;
     }
 
     @Override

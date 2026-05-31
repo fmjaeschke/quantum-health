@@ -156,19 +156,18 @@ class JpaAppointmentRepositoryTest {
     }
 
     @Test
-    @DataSet("datasets/appointment-active-check.yml")
-    void existsActiveByDoctorAndPatient_returns_true_for_active_appointment() {
-        var exists = repository.existsActiveByDoctorAndPatient(
-                UserId.of("doctor-active"), PatientId.of(ALICE_UUID));
-        assertThat(exists).isTrue();
-    }
+    @DataSet("datasets/appointment.yml")
+    @Transactional
+    void save_new_throws_DuplicateAppointmentException_when_active_appointment_exists_for_same_doctor_and_patient() {
+        // appointment.yml seeds Alice + doctor-1 as PENDING (active, covered by the partial unique index)
+        var duplicate = Appointment.schedule(
+                PatientId.of(ALICE_UUID), "Alice Smith",
+                UserId.of("doctor-1"), "Dr. One",
+                Instant.parse("2026-06-01T09:00:00Z"),
+                "Second booking");
 
-    @Test
-    @DataSet("datasets/appointment-active-check.yml")
-    void existsActiveByDoctorAndPatient_returns_false_when_only_cancelled() {
-        var exists = repository.existsActiveByDoctorAndPatient(
-                UserId.of("doctor-inactive"), PatientId.of(ALICE_UUID));
-        assertThat(exists).isFalse();
+        assertThatThrownBy(() -> repository.saveNew(duplicate))
+                .isInstanceOf(DuplicateAppointmentException.class);
     }
 
     // --- findAll(AppointmentQuery) ---

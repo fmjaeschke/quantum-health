@@ -82,7 +82,7 @@ class AppointmentServiceTest {
     @Test
     void schedule_throws_DuplicateAppointmentException_when_active_booking_exists() {
         var repo = new FakeRepo();
-        repo.activeExists = true;
+        repo.simulateDuplicateOnSave = true;
         var service = service(repo, false);
 
         assertThatThrownBy(() -> service.schedule(ACTOR, PATIENT, DOCTOR_ID, TOMORROW, REASON))
@@ -228,7 +228,7 @@ class AppointmentServiceTest {
         final List<Appointment> store;
         final List<Appointment> saved = new ArrayList<>();
         AppointmentQuery lastQuery;
-        boolean activeExists = false;
+        boolean simulateDuplicateOnSave = false;
 
         FakeRepo(Appointment... appointments) {
             this.store = new ArrayList<>(List.of(appointments));
@@ -236,6 +236,9 @@ class AppointmentServiceTest {
 
         @Override
         public Appointment saveNew(Appointment appointment) {
+            if (simulateDuplicateOnSave) {
+                throw new DuplicateAppointmentException(appointment.getDoctorId(), appointment.getPatientId());
+            }
             saved.add(appointment);
             store.add(appointment);
             return appointment;
@@ -267,11 +270,6 @@ class AppointmentServiceTest {
         @Override
         public boolean existsByDoctorAndPatient(UserId d, PatientId p) {
             return false;
-        }
-
-        @Override
-        public boolean existsActiveByDoctorAndPatient(UserId d, PatientId p) {
-            return activeExists;
         }
 
         @Override
