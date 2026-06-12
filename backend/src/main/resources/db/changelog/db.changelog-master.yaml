@@ -11,3 +11,13 @@ databaseChangeLog:
       file: db/changelog/0005-add-active-appointment-unique-constraint.yaml
   - include:
       file: db/changelog/0006-fix-active-appointment-partial-index.yaml
+  - include:
+      file: db/changelog/0007-create-prescription.yaml
+  - include:
+      file: db/changelog/0008-create-quartz-tables.yaml
+  - include:
+      file: db/changelog/0009-add-expired-at-prescription.yaml
+  - include:
+      file: db/changelog/0010-add-prescription-version.yaml
+  - include:
+      file: db/changelog/0011-add-prescription-expiry-index.yaml

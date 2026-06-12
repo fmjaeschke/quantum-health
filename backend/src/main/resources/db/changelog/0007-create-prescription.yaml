@@ -1,0 +1,86 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0007-create-prescription
+      author: quantum
+      changes:
+        - createTable:
+            tableName: qh_prescription
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: patient_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: patient_name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: doctor_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: doctor_name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: medications
+                  type: JSONB
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: issued_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: fulfilled_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: true
+              - column:
+                  name: fulfilled_by
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: cancelled_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: true
+              - column:
+                  name: cancelled_by
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: cancelled_reason
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: true
+        - createIndex:
+            indexName: idx_prescription_doctor_id
+            tableName: qh_prescription
+            columns:
+              - column:
+                  name: doctor_id
+        - createIndex:
+            indexName: idx_prescription_status
+            tableName: qh_prescription
+            columns:
+              - column:
+                  name: status

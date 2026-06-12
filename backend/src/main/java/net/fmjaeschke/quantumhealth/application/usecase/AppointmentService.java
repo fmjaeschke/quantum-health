@@ -58,9 +58,8 @@ public class AppointmentService implements
                 .orElseThrow(() -> new PatientNotFoundException(patientId));
         var doctor = doctorPort.findById(doctorId)
                 .orElseThrow(() -> new DoctorNotFoundException(doctorId));
-        var patientName = patient.getFirstName() + " " + patient.getLastName();
         return repository.saveNew(
-                Appointment.schedule(patientId, patientName, doctorId, doctor.displayName(), scheduledAt, reason));
+                Appointment.schedule(patientId, patient.getFullName(), doctorId, doctor.displayName(), scheduledAt, reason));
     }
 
     @Override

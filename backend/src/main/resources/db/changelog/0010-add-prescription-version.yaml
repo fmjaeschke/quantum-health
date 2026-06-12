@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0010-add-prescription-version
+      author: quantum
+      changes:
+        - addColumn:
+            tableName: qh_prescription
+            columns:
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false

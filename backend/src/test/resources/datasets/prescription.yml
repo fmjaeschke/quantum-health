@@ -1,0 +1,66 @@
+qh_prescription:
+  # doctor-1: ISSUED, 31 days ago — stale enough to expire
+  - id: "bbbbbbbb-0000-0000-0000-000000000001"
+    patient_id: "550e8400-e29b-41d4-a716-446655440000"
+    patient_name: "Alice Smith"
+    doctor_id: "doctor-1"
+    doctor_name: "Dr. One"
+    medications: '[{"drugName":"Aspirin","dosage":"100mg","frequency":"once daily"}]'
+    status: "ISSUED"
+    issued_at: "[DAY,THIRTY_ONE_DAYS_AGO]"
+
+  # doctor-1: ISSUED, 1 day ago — too recent to expire
+  - id: "bbbbbbbb-0000-0000-0000-000000000002"
+    patient_id: "550e8400-e29b-41d4-a716-446655440000"
+    patient_name: "Alice Smith"
+    doctor_id: "doctor-1"
+    doctor_name: "Dr. One"
+    medications: '[{"drugName":"Ibuprofen","dosage":"400mg","frequency":"twice daily"}]'
+    status: "ISSUED"
+    issued_at: "[DAY,ONE_DAY_AGO]"
+
+  # doctor-1: EXPIRED with expired_at — for expired_at round-trip test
+  - id: "bbbbbbbb-0000-0000-0000-000000000003"
+    patient_id: "550e8400-e29b-41d4-a716-446655440000"
+    patient_name: "Alice Smith"
+    doctor_id: "doctor-1"
+    doctor_name: "Dr. One"
+    medications: '[{"drugName":"Paracetamol","dosage":"500mg","frequency":"four times daily"}]'
+    status: "EXPIRED"
+    issued_at: "2025-01-01T10:00:00.000+00:00"
+    expired_at: "2025-02-01T10:00:00.000+00:00"
+
+  # doctor-1: FULFILLED, issued 31 days ago — must not be touched by expireOlderThan
+  - id: "bbbbbbbb-0000-0000-0000-000000000004"
+    patient_id: "550e8400-e29b-41d4-a716-446655440000"
+    patient_name: "Alice Smith"
+    doctor_id: "doctor-1"
+    doctor_name: "Dr. One"
+    medications: '[{"drugName":"Metformin","dosage":"500mg","frequency":"once daily"}]'
+    status: "FULFILLED"
+    issued_at: "[DAY,THIRTY_ONE_DAYS_AGO]"
+    fulfilled_at: "2025-06-01T10:00:00.000+00:00"
+    fulfilled_by: "pharmacist-1"
+
+  # doctor-1: CANCELLED, issued 31 days ago — must not be touched by expireOlderThan
+  - id: "bbbbbbbb-0000-0000-0000-000000000005"
+    patient_id: "550e8400-e29b-41d4-a716-446655440000"
+    patient_name: "Alice Smith"
+    doctor_id: "doctor-1"
+    doctor_name: "Dr. One"
+    medications: '[{"drugName":"Omeprazole","dosage":"20mg","frequency":"once daily before meals"}]'
+    status: "CANCELLED"
+    issued_at: "[DAY,THIRTY_ONE_DAYS_AGO]"
+    cancelled_at: "2025-06-01T10:00:00.000+00:00"
+    cancelled_by: "doctor-1"
+    cancelled_reason: "Prescribing error"
+
+  # doctor-2: ISSUED, 1 day ago — for doctor-scoped list test
+  - id: "bbbbbbbb-0000-0000-0000-000000000006"
+    patient_id: "550e8400-e29b-41d4-a716-446655440001"
+    patient_name: "Bob Jones"
+    doctor_id: "doctor-2"
+    doctor_name: "Dr. Two"
+    medications: '[{"drugName":"Atorvastatin","dosage":"10mg","frequency":"once daily"}]'
+    status: "ISSUED"
+    issued_at: "[DAY,ONE_DAY_AGO]"

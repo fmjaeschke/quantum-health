@@ -6,6 +6,7 @@ import org.dbunit.dataset.datatype.DataType;
 import org.dbunit.dataset.datatype.DataTypeException;
 import org.dbunit.dataset.datatype.TypeCastException;
 import org.dbunit.ext.postgresql.PostgresqlDataTypeFactory;
+import org.postgresql.util.PGobject;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -21,6 +22,36 @@ public class CustomPostgresqlDataTypeFactory extends PostgresqlDataTypeFactory {
 
     @Override
     public DataType createDataType(int sqlType, String sqlTypeName) throws DataTypeException {
+        if ("jsonb".equals(sqlTypeName)) {
+            return new AbstractDataType("jsonb", Types.OTHER, String.class, false) {
+                @Override
+                public Object typeCast(Object value) {
+                    if (value == null || value == ITable.NO_VALUE) {
+                        return null;
+                    }
+                    return value.toString();
+                }
+
+                @Override
+                public void setSqlValue(Object value, int column, PreparedStatement ps)
+                        throws SQLException, TypeCastException {
+                    if (value == null || value == ITable.NO_VALUE) {
+                        ps.setNull(column, Types.OTHER);
+                        return;
+                    }
+                    var pgObject = new PGobject();
+                    pgObject.setType("jsonb");
+                    pgObject.setValue(value.toString());
+                    ps.setObject(column, pgObject);
+                }
+
+                @Override
+                public Object getSqlValue(int column, ResultSet rs) throws SQLException {
+                    String value = rs.getString(column);
+                    return (value == null || rs.wasNull()) ? null : value;
+                }
+            };
+        }
         if ("timestamptz".equals(sqlTypeName)) {
             return new AbstractDataType("timestamptz", Types.OTHER, OffsetDateTime.class, false) {
 

@@ -17,6 +17,9 @@ public enum Permission {
     WRITE_ENCOUNTER,
     READ_ENCOUNTER,
 
+    // Prescription
+    CANCEL_PRESCRIPTION,
+
     // Module-scoped (role check sufficient)
     DISPENSE_MEDICATION,
     PROCESS_BILLING,

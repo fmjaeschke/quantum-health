@@ -45,7 +45,7 @@ class JpaAppointmentRepositoryTest {
                 Instant.parse("2025-07-01T09:00:00Z"),
                 "Routine screening");
 
-        var saved = repository.save(appointment);
+        var saved = repository.saveNew(appointment);
 
         assertThat(saved.getId()).isEqualTo(appointment.getId());
         assertThat(saved.getReason()).isEqualTo("Routine screening");

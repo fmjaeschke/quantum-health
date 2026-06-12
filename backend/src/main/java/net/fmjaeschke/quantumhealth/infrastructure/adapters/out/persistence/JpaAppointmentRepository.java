@@ -2,7 +2,6 @@ package net.fmjaeschke.quantumhealth.infrastructure.adapters.out.persistence;
 
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.persistence.PersistenceException;
 import org.hibernate.exception.ConstraintViolationException;
 import net.fmjaeschke.quantumhealth.application.exception.DuplicateAppointmentException;
 import net.fmjaeschke.quantumhealth.application.ports.out.AppointmentRepository;
@@ -38,12 +37,6 @@ public class JpaAppointmentRepository
             return entity.toDomain();
         } catch (ConstraintViolationException e) {
             if (UQ_ACTIVE_APPOINTMENT.equals(e.getConstraintName())) {
-                throw new DuplicateAppointmentException(appointment.getDoctorId(), appointment.getPatientId());
-            }
-            throw e;
-        } catch (PersistenceException e) {
-            if (e.getCause() instanceof ConstraintViolationException cve
-                    && UQ_ACTIVE_APPOINTMENT.equals(cve.getConstraintName())) {
                 throw new DuplicateAppointmentException(appointment.getDoctorId(), appointment.getPatientId());
             }
             throw e;
