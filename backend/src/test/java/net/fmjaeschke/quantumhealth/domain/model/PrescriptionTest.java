@@ -1,11 +1,6 @@
-package net.fmjaeschke.quantumhealth.domain;
+package net.fmjaeschke.quantumhealth.domain.model;
 
 import net.fmjaeschke.quantumhealth.domain.exception.InvalidPrescriptionStateException;
-import net.fmjaeschke.quantumhealth.domain.model.MedicationItem;
-import net.fmjaeschke.quantumhealth.domain.model.PatientId;
-import net.fmjaeschke.quantumhealth.domain.model.Prescription;
-import net.fmjaeschke.quantumhealth.domain.model.PrescriptionStatus;
-import net.fmjaeschke.quantumhealth.domain.model.UserId;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -14,7 +9,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class PrescriptionDomainTest {
+class PrescriptionTest {
 
     private static final PatientId PATIENT = PatientId.of(UUID.randomUUID());
     private static final UserId DOCTOR = UserId.of("dr-smith");
