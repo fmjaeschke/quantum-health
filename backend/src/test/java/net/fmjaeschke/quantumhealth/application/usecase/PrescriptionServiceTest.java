@@ -14,6 +14,7 @@ import net.fmjaeschke.quantumhealth.domain.model.Patient;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.PatientPage;
 import net.fmjaeschke.quantumhealth.domain.model.PatientQuery;
+import net.fmjaeschke.quantumhealth.domain.model.Disposition;
 import net.fmjaeschke.quantumhealth.domain.model.Prescription;
 import net.fmjaeschke.quantumhealth.domain.model.PrescriptionId;
 import net.fmjaeschke.quantumhealth.domain.model.PrescriptionPage;
@@ -180,8 +181,9 @@ class PrescriptionServiceTest {
                 PATIENT_ID, "Alice Smith",
                 ACTOR, "Dr. Smith",
                 MEDICATIONS,
-                PrescriptionStatus.ISSUED, Instant.now().minus(31, ChronoUnit.DAYS),
-                null, null, null, null, null, null, 0L);
+                Instant.now().minus(31, ChronoUnit.DAYS),
+                Disposition.issued(),
+                0L);
     }
 
     @Test

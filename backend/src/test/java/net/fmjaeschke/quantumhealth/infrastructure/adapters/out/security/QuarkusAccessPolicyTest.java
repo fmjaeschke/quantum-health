@@ -8,11 +8,11 @@ import net.fmjaeschke.quantumhealth.application.Permission;
 import net.fmjaeschke.quantumhealth.application.exception.AccessDeniedException;
 import net.fmjaeschke.quantumhealth.application.ports.out.AccessPolicy;
 import net.fmjaeschke.quantumhealth.application.ports.out.PrescriptionRepository;
+import net.fmjaeschke.quantumhealth.domain.model.Disposition;
 import net.fmjaeschke.quantumhealth.domain.model.MedicationItem;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.Prescription;
 import net.fmjaeschke.quantumhealth.domain.model.PrescriptionId;
-import net.fmjaeschke.quantumhealth.domain.model.PrescriptionStatus;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 import org.junit.jupiter.api.Test;
 
@@ -112,8 +112,7 @@ class QuarkusAccessPolicyTest {
         var prescription = Prescription.reconstitute(rxId, PatientId.generate(), "Alice",
                 UserId.of("doctor-1"), "Dr. One",
                 List.of(new MedicationItem("Aspirin", "100mg", "once daily")),
-                PrescriptionStatus.ISSUED, Instant.now(),
-                null, null, null, null, null, null, 0L);
+                Instant.now(), Disposition.issued(), 0L);
         when(prescriptionRepository.findById(rxId)).thenReturn(Optional.of(prescription));
 
         assertThatNoException().isThrownBy(
@@ -127,8 +126,7 @@ class QuarkusAccessPolicyTest {
         var prescription = Prescription.reconstitute(rxId, PatientId.generate(), "Alice",
                 UserId.of("doctor-2"), "Dr. Two",
                 List.of(new MedicationItem("Aspirin", "100mg", "once daily")),
-                PrescriptionStatus.ISSUED, Instant.now(),
-                null, null, null, null, null, null, 0L);
+                Instant.now(), Disposition.issued(), 0L);
         when(prescriptionRepository.findById(rxId)).thenReturn(Optional.of(prescription));
 
         assertThatThrownBy(
@@ -143,8 +141,7 @@ class QuarkusAccessPolicyTest {
         var prescription = Prescription.reconstitute(rxId, PatientId.generate(), "Alice",
                 UserId.of("doctor-2"), "Dr. Two",
                 List.of(new MedicationItem("Aspirin", "100mg", "once daily")),
-                PrescriptionStatus.ISSUED, Instant.now(),
-                null, null, null, null, null, null, 0L);
+                Instant.now(), Disposition.issued(), 0L);
         when(prescriptionRepository.findById(rxId)).thenReturn(Optional.of(prescription));
 
         assertThatNoException().isThrownBy(

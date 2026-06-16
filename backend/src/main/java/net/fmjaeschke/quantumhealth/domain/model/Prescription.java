@@ -14,113 +14,79 @@ public final class Prescription {
     private final UserId doctorId;
     private final String doctorName;
     private final List<MedicationItem> medications;
-    private final PrescriptionStatus status;
     private final Instant issuedAt;
-    private final Instant fulfilledAt;
-    private final UserId fulfilledBy;
-    private final Instant cancelledAt;
-    private final UserId cancelledBy;
-    private final String cancelledReason;
-    private final Instant expiredAt;
+    private final Disposition disposition;
     private final Long version;
 
-    @SuppressWarnings("java:S107")
     private Prescription(PrescriptionId id, PatientId patientId, String patientName,
                          UserId doctorId, String doctorName, List<MedicationItem> medications,
-                         PrescriptionStatus status, Instant issuedAt,
-                         Instant fulfilledAt, UserId fulfilledBy,
-                         Instant cancelledAt, UserId cancelledBy, String cancelledReason,
-                         Instant expiredAt, Long version) {
-        this.id             = Objects.requireNonNull(id,          "id");
-        this.patientId      = Objects.requireNonNull(patientId,   "patientId");
-        this.patientName    = Objects.requireNonNull(patientName, "patientName");
-        this.doctorId       = Objects.requireNonNull(doctorId,    "doctorId");
-        this.doctorName     = Objects.requireNonNull(doctorName,  "doctorName");
-        this.medications    = List.copyOf(Objects.requireNonNull(medications, "medications"));
-        this.status         = Objects.requireNonNull(status,      "status");
-        this.issuedAt       = Objects.requireNonNull(issuedAt,    "issuedAt");
-        this.fulfilledAt    = fulfilledAt;
-        this.fulfilledBy    = fulfilledBy;
-        this.cancelledAt    = cancelledAt;
-        this.cancelledBy    = cancelledBy;
-        this.cancelledReason = cancelledReason;
-        this.expiredAt      = expiredAt;
-        this.version        = version;
+                         Instant issuedAt, Disposition disposition, Long version) {
+        this.id          = Objects.requireNonNull(id,          "id");
+        this.patientId   = Objects.requireNonNull(patientId,   "patientId");
+        this.patientName = Objects.requireNonNull(patientName, "patientName");
+        this.doctorId    = Objects.requireNonNull(doctorId,    "doctorId");
+        this.doctorName  = Objects.requireNonNull(doctorName,  "doctorName");
+        this.medications = List.copyOf(Objects.requireNonNull(medications, "medications"));
+        this.issuedAt    = Objects.requireNonNull(issuedAt,    "issuedAt");
+        this.disposition = Objects.requireNonNull(disposition, "disposition");
+        this.version     = version;
     }
 
     public static Prescription issue(PatientId patientId, String patientName,
                                      UserId doctorId, String doctorName,
                                      List<MedicationItem> medications) {
         return new Prescription(PrescriptionId.generate(), patientId, patientName,
-                doctorId, doctorName, medications,
-                PrescriptionStatus.ISSUED, Instant.now(),
-                null, null, null, null, null, null, null);
+                doctorId, doctorName, medications, Instant.now(), Disposition.issued(), null);
     }
 
-    @SuppressWarnings("java:S107")
     public static Prescription reconstitute(PrescriptionId id, PatientId patientId, String patientName,
                                             UserId doctorId, String doctorName, List<MedicationItem> medications,
-                                            PrescriptionStatus status, Instant issuedAt,
-                                            Instant fulfilledAt, UserId fulfilledBy,
-                                            Instant cancelledAt, UserId cancelledBy, String cancelledReason,
-                                            Instant expiredAt, Long version) {
+                                            Instant issuedAt, Disposition disposition, Long version) {
         return new Prescription(id, patientId, patientName, doctorId, doctorName, medications,
-                status, issuedAt, fulfilledAt, fulfilledBy, cancelledAt, cancelledBy, cancelledReason,
-                expiredAt, version);
+                issuedAt, disposition, version);
     }
 
     public Prescription fulfill(UserId actor) {
         if (!isFulfillable()) {
-            throw new InvalidPrescriptionStateException("fulfill", status);
+            throw new InvalidPrescriptionStateException("fulfill", disposition.status);
         }
         return new Prescription(id, patientId, patientName, doctorId, doctorName, medications,
-                PrescriptionStatus.FULFILLED, issuedAt,
-                Instant.now(), actor, null, null, null, null, version);
+                issuedAt, Disposition.fulfilled(actor), version);
     }
 
     public Prescription cancel(UserId actor, String reason) {
         if (!isCancellable()) {
-            throw new InvalidPrescriptionStateException("cancel", status);
+            throw new InvalidPrescriptionStateException("cancel", disposition.status);
         }
         return new Prescription(id, patientId, patientName, doctorId, doctorName, medications,
-                PrescriptionStatus.CANCELLED, issuedAt,
-                null, null, Instant.now(), actor, reason, null, version);
+                issuedAt, Disposition.cancelled(actor, reason), version);
     }
 
     public Prescription expire() {
         if (!isExpirable()) {
-            throw new InvalidPrescriptionStateException("expire", status);
+            throw new InvalidPrescriptionStateException("expire", disposition.status);
         }
         return new Prescription(id, patientId, patientName, doctorId, doctorName, medications,
-                PrescriptionStatus.EXPIRED, issuedAt,
-                null, null, null, null, null, Instant.now(), version);
+                issuedAt, Disposition.expired(), version);
     }
 
-    public boolean isFulfillable() {
-        return status == PrescriptionStatus.ISSUED;
-    }
+    public boolean isFulfillable() { return disposition.status == PrescriptionStatus.ISSUED; }
+    public boolean isCancellable() { return disposition.status == PrescriptionStatus.ISSUED; }
+    public boolean isExpirable()   { return disposition.status == PrescriptionStatus.ISSUED; }
 
-    public boolean isCancellable() {
-        return status == PrescriptionStatus.ISSUED;
-    }
-
-    public boolean isExpirable() {
-        return status == PrescriptionStatus.ISSUED;
-    }
-
-    public PrescriptionId getId()          { return id; }
-    public PatientId getPatientId()        { return patientId; }
-    public String getPatientName()         { return patientName; }
-    public UserId getDoctorId()            { return doctorId; }
-    public String getDoctorName()          { return doctorName; }
-    public List<MedicationItem> getMedications() { return medications; }
-    public PrescriptionStatus getStatus()  { return status; }
-    public Instant getIssuedAt()           { return issuedAt; }
-    public Instant getFulfilledAt()        { return fulfilledAt; }
-    public UserId getFulfilledBy()         { return fulfilledBy; }
-    public Instant getCancelledAt()        { return cancelledAt; }
-    public UserId getCancelledBy()         { return cancelledBy; }
-    public String getCancelledReason()     { return cancelledReason; }
-    public Instant getExpiredAt()          { return expiredAt; }
-    public Long getVersion()               { return version; }
+    public PrescriptionId getId()                 { return id; }
+    public PatientId getPatientId()               { return patientId; }
+    public String getPatientName()                { return patientName; }
+    public UserId getDoctorId()                   { return doctorId; }
+    public String getDoctorName()                 { return doctorName; }
+    public List<MedicationItem> getMedications()  { return medications; }
+    public PrescriptionStatus getStatus()         { return disposition.status; }
+    public Instant getIssuedAt()                  { return issuedAt; }
+    public Instant getFulfilledAt()               { return disposition.fulfilledAt; }
+    public UserId getFulfilledBy()                { return disposition.fulfilledBy; }
+    public Instant getCancelledAt()               { return disposition.cancelledAt; }
+    public UserId getCancelledBy()                { return disposition.cancelledBy; }
+    public String getCancelledReason()            { return disposition.cancelledReason; }
+    public Instant getExpiredAt()                 { return disposition.expiredAt; }
+    public Long getVersion()                      { return version; }
 }

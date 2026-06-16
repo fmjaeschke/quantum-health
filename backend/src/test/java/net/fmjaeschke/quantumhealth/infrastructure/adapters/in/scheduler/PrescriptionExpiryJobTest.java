@@ -5,6 +5,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.persistence.OptimisticLockException;
 import net.fmjaeschke.quantumhealth.application.ports.out.PrescriptionRepository;
+import net.fmjaeschke.quantumhealth.domain.model.Disposition;
 import net.fmjaeschke.quantumhealth.domain.model.MedicationItem;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.Prescription;
@@ -41,8 +42,9 @@ class PrescriptionExpiryJobTest {
                 PatientId.of(ALICE_UUID), "Alice Smith",
                 UserId.of("doctor-1"), "Dr. One",
                 ITEMS,
-                PrescriptionStatus.ISSUED, issuedAt,
-                null, null, null, null, null, null, null);
+                issuedAt,
+                Disposition.issued(),
+                null);
     }
 
     @Test

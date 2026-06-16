@@ -7,6 +7,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import net.fmjaeschke.quantumhealth.domain.model.Disposition;
 import net.fmjaeschke.quantumhealth.domain.model.MedicationItem;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.Prescription;
@@ -100,14 +101,15 @@ public class JpaPrescription {
                 UserId.of(doctorId),
                 doctorName,
                 medications,
-                status,
                 issuedAt,
-                fulfilledAt,
-                fulfilledBy != null ? UserId.of(fulfilledBy) : null,
-                cancelledAt,
-                cancelledBy != null ? UserId.of(cancelledBy) : null,
-                cancelledReason,
-                expiredAt,
+                Disposition.reconstituted(
+                        status,
+                        fulfilledAt,
+                        fulfilledBy != null ? UserId.of(fulfilledBy) : null,
+                        cancelledAt,
+                        cancelledBy != null ? UserId.of(cancelledBy) : null,
+                        cancelledReason,
+                        expiredAt),
                 version);
     }
 }

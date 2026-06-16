@@ -12,6 +12,7 @@ import net.fmjaeschke.quantumhealth.application.ports.in.IssuePrescriptionUseCas
 import net.fmjaeschke.quantumhealth.application.ports.in.ListPrescriptionsUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.ReadPrescriptionUseCase;
 import net.fmjaeschke.quantumhealth.domain.exception.InvalidPrescriptionStateException;
+import net.fmjaeschke.quantumhealth.domain.model.Disposition;
 import net.fmjaeschke.quantumhealth.domain.model.MedicationItem;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.Prescription;
@@ -53,9 +54,9 @@ class PrescriptionResourceTest {
             UserId.of("dr-smith"),
             "Dr. Smith",
             ITEMS,
-            PrescriptionStatus.ISSUED,
             Instant.parse("2026-01-15T10:00:00Z"),
-            null, null, null, null, null, null, 0L);
+            Disposition.issued(),
+            0L);
 
     @InjectMock IssuePrescriptionUseCase issueMock;
     @InjectMock ReadPrescriptionUseCase readMock;
@@ -264,9 +265,10 @@ class PrescriptionResourceTest {
         var expired = Prescription.reconstitute(
                 PrescriptionId.of(RX_ID), PatientId.of(PATIENT_UUID), "Alice Smith",
                 UserId.of("dr-smith"), "Dr. Smith", ITEMS,
-                PrescriptionStatus.EXPIRED, Instant.parse("2026-01-15T10:00:00Z"),
-                null, null, null, null, null,
-                Instant.parse("2026-02-16T00:00:00Z"), 0L);
+                Instant.parse("2026-01-15T10:00:00Z"),
+                Disposition.reconstituted(PrescriptionStatus.EXPIRED,
+                        null, null, null, null, null, Instant.parse("2026-02-16T00:00:00Z")),
+                0L);
         when(readMock.findById(eq(PrescriptionId.of(RX_ID)), any())).thenReturn(expired);
 
         given().when()
@@ -284,9 +286,11 @@ class PrescriptionResourceTest {
         var fulfilled = Prescription.reconstitute(
                 PrescriptionId.of(RX_ID), PatientId.of(PATIENT_UUID), "Alice Smith",
                 UserId.of("dr-smith"), "Dr. Smith", ITEMS,
-                PrescriptionStatus.FULFILLED, Instant.parse("2026-01-15T10:00:00Z"),
-                Instant.parse("2026-01-16T09:00:00Z"), UserId.of("pharmacist-1"),
-                null, null, null, null, 0L);
+                Instant.parse("2026-01-15T10:00:00Z"),
+                Disposition.reconstituted(PrescriptionStatus.FULFILLED,
+                        Instant.parse("2026-01-16T09:00:00Z"), UserId.of("pharmacist-1"),
+                        null, null, null, null),
+                0L);
         when(readMock.findById(eq(PrescriptionId.of(RX_ID)), any())).thenReturn(fulfilled);
 
         given().when()
