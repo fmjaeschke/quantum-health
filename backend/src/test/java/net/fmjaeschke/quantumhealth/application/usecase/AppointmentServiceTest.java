@@ -1,6 +1,7 @@
 package net.fmjaeschke.quantumhealth.application.usecase;
 
-import net.fmjaeschke.quantumhealth.application.Permission;
+import net.fmjaeschke.quantumhealth.domain.model.Permission;
+import net.fmjaeschke.quantumhealth.application.exception.AccessDeniedException;
 import net.fmjaeschke.quantumhealth.application.exception.AppointmentNotFoundException;
 import net.fmjaeschke.quantumhealth.application.exception.DoctorNotFoundException;
 import net.fmjaeschke.quantumhealth.application.exception.DuplicateAppointmentException;
@@ -46,7 +47,15 @@ class AppointmentServiceTest {
     static final Doctor DR_SMITH = new Doctor(DOCTOR_ID, "Dr. Smith");
 
     private static AppointmentService service(FakeRepo repo, boolean isDoctor) {
-        return new AppointmentService(repo, new FakePatientRepo(ALICE), new FakeDoctorPort(DR_SMITH), new FakeAccessPolicy(isDoctor));
+        return service(repo, isDoctor, false);
+    }
+
+    private static AppointmentService service(FakeRepo repo, boolean isDoctor, boolean denyCheck) {
+        return service(repo, new FakeAccessPolicy(isDoctor, denyCheck));
+    }
+
+    private static AppointmentService service(FakeRepo repo, FakeAccessPolicy policy) {
+        return new AppointmentService(repo, new FakePatientRepo(ALICE), new FakeDoctorPort(DR_SMITH), policy);
     }
 
     @Test
@@ -116,6 +125,27 @@ class AppointmentServiceTest {
     }
 
     @Test
+    void findById_allows_assigned_doctor() {
+        var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON);
+        var service = service(new FakeRepo(appointment), true, false);
+
+        var found = service.findById(appointment.getId(), DOCTOR_ID);
+
+        assertThat(found.getId()).isEqualTo(appointment.getId());
+    }
+
+    @Test
+    void findById_denies_non_assigned_doctor() {
+        var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON);
+        var policy = new FakeAccessPolicy(true, true);
+        var service = service(new FakeRepo(appointment), policy);
+
+        assertThatThrownBy(() -> service.findById(appointment.getId(), UserId.of("dr-other")))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThat(policy.lastPermission).isEqualTo(Permission.READ_APPOINTMENT);
+    }
+
+    @Test
     void confirm_saves_confirmed_appointment() {
         var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON);
         var repo = new FakeRepo(appointment);
@@ -128,6 +158,17 @@ class AppointmentServiceTest {
     }
 
     @Test
+    void confirm_denies_when_access_policy_denies() {
+        var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON);
+        var policy = new FakeAccessPolicy(false, true);
+        var service = service(new FakeRepo(appointment), policy);
+
+        assertThatThrownBy(() -> service.confirm(appointment.getId(), ACTOR))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThat(policy.lastPermission).isEqualTo(Permission.CONFIRM_APPOINTMENT);
+    }
+
+    @Test
     void cancel_saves_cancelled_appointment() {
         var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON);
         var service = service(new FakeRepo(appointment), false);
@@ -135,6 +176,27 @@ class AppointmentServiceTest {
         var result = service.cancel(appointment.getId(), ACTOR);
 
         assertThat(result.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+    }
+
+    @Test
+    void cancel_allows_assigned_doctor() {
+        var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON);
+        var service = service(new FakeRepo(appointment), true, false);
+
+        var result = service.cancel(appointment.getId(), DOCTOR_ID);
+
+        assertThat(result.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+    }
+
+    @Test
+    void cancel_denies_non_assigned_doctor() {
+        var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON);
+        var policy = new FakeAccessPolicy(true, true);
+        var service = service(new FakeRepo(appointment), policy);
+
+        assertThatThrownBy(() -> service.cancel(appointment.getId(), UserId.of("dr-other")))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThat(policy.lastPermission).isEqualTo(Permission.CANCEL_APPOINTMENT);
     }
 
     @Test
@@ -150,6 +212,17 @@ class AppointmentServiceTest {
     }
 
     @Test
+    void checkIn_denies_when_access_policy_denies() {
+        var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON).confirm();
+        var policy = new FakeAccessPolicy(false, true);
+        var service = service(new FakeRepo(appointment), policy);
+
+        assertThatThrownBy(() -> service.checkIn(appointment.getId(), ACTOR))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThat(policy.lastPermission).isEqualTo(Permission.CHECK_IN_PATIENT);
+    }
+
+    @Test
     void start_saves_in_progress_appointment() {
         var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON).confirm();
         var service = service(new FakeRepo(appointment), false);
@@ -157,6 +230,27 @@ class AppointmentServiceTest {
         var result = service.start(appointment.getId(), ACTOR);
 
         assertThat(result.getStatus()).isEqualTo(AppointmentStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void start_allows_assigned_doctor() {
+        var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON).confirm();
+        var service = service(new FakeRepo(appointment), true, false);
+
+        var result = service.start(appointment.getId(), DOCTOR_ID);
+
+        assertThat(result.getStatus()).isEqualTo(AppointmentStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void start_denies_non_assigned_doctor() {
+        var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON).confirm();
+        var policy = new FakeAccessPolicy(true, true);
+        var service = service(new FakeRepo(appointment), policy);
+
+        assertThatThrownBy(() -> service.start(appointment.getId(), UserId.of("dr-other")))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThat(policy.lastPermission).isEqualTo(Permission.START_ENCOUNTER);
     }
 
     @Test
@@ -280,14 +374,24 @@ class AppointmentServiceTest {
 
     static class FakeAccessPolicy implements AccessPolicy {
         private final boolean isDoctor;
+        private final boolean denyCheck;
+        Permission lastPermission;
 
         FakeAccessPolicy(boolean isDoctor) {
+            this(isDoctor, false);
+        }
+
+        FakeAccessPolicy(boolean isDoctor, boolean denyCheck) {
             this.isDoctor = isDoctor;
+            this.denyCheck = denyCheck;
         }
 
         @Override
         public void check(Permission permission, UserId actor, ResourceId resource) {
-            // Not implemented
+            this.lastPermission = permission;
+            if (denyCheck) {
+                throw new AccessDeniedException(permission + " denied for " + actor.value());
+            }
         }
 
         @Override
@@ -298,6 +402,11 @@ class AppointmentServiceTest {
         @Override
         public boolean isDoctor() {
             return isDoctor;
+        }
+
+        @Override
+        public boolean mayAccessOwnedBy(UserId resourceOwner, UserId actor) {
+            return !isDoctor || resourceOwner.equals(actor);
         }
     }
 

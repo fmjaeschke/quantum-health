@@ -18,6 +18,7 @@ import net.fmjaeschke.quantumhealth.application.ports.out.PatientRepository;
 import net.fmjaeschke.quantumhealth.application.ports.out.PrescriptionRepository;
 import net.fmjaeschke.quantumhealth.domain.model.MedicationItem;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
+import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.domain.model.Prescription;
 import net.fmjaeschke.quantumhealth.domain.model.PrescriptionId;
 import net.fmjaeschke.quantumhealth.domain.model.PrescriptionPage;
@@ -65,7 +66,7 @@ public class PrescriptionService implements IssuePrescriptionUseCase, ReadPrescr
     public Prescription findById(PrescriptionId id, UserId actor) {
         var prescription = repository.findById(id)
                 .orElseThrow(() -> new PrescriptionNotFoundException(id));
-        if (accessPolicy.isDoctor() && !prescription.getDoctorId().equals(actor)) {
+        if (!accessPolicy.mayAccessOwnedBy(prescription.getDoctorId(), actor)) {
             throw new PrescriptionNotFoundException(id);
         }
         return prescription;
@@ -73,6 +74,7 @@ public class PrescriptionService implements IssuePrescriptionUseCase, ReadPrescr
 
     @Override
     public Prescription fulfill(PrescriptionId id, UserId actor) {
+        accessPolicy.check(Permission.DISPENSE_MEDICATION, actor, id);
         var prescription = repository.findById(id)
                 .orElseThrow(() -> new PrescriptionNotFoundException(id));
         return repository.save(prescription.fulfill(actor));
@@ -80,6 +82,7 @@ public class PrescriptionService implements IssuePrescriptionUseCase, ReadPrescr
 
     @Override
     public Prescription cancel(PrescriptionId id, UserId actor, String reason) {
+        accessPolicy.check(Permission.CANCEL_PRESCRIPTION, actor, id);
         var prescription = repository.findById(id)
                 .orElseThrow(() -> new PrescriptionNotFoundException(id));
         return repository.save(prescription.cancel(actor, reason));

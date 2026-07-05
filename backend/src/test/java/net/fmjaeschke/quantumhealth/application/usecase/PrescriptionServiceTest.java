@@ -1,6 +1,7 @@
 package net.fmjaeschke.quantumhealth.application.usecase;
 
-import net.fmjaeschke.quantumhealth.application.Permission;
+import net.fmjaeschke.quantumhealth.domain.model.Permission;
+import net.fmjaeschke.quantumhealth.application.exception.AccessDeniedException;
 import net.fmjaeschke.quantumhealth.application.exception.DoctorNotFoundException;
 import net.fmjaeschke.quantumhealth.application.exception.PatientNotFoundException;
 import net.fmjaeschke.quantumhealth.application.exception.PrescriptionNotFoundException;
@@ -47,7 +48,15 @@ class PrescriptionServiceTest {
     static final Doctor DR_SMITH = new Doctor(ACTOR, "Dr. Smith");
 
     private static PrescriptionService service(FakePrescriptionRepo repo, boolean isDoctor) {
-        return new PrescriptionService(repo, new FakePatientRepo(ALICE), new FakeDoctorPort(DR_SMITH), new FakeAccessPolicy(isDoctor));
+        return service(repo, isDoctor, false);
+    }
+
+    private static PrescriptionService service(FakePrescriptionRepo repo, boolean isDoctor, boolean denyCheck) {
+        return service(repo, new FakeAccessPolicy(isDoctor, denyCheck));
+    }
+
+    private static PrescriptionService service(FakePrescriptionRepo repo, FakeAccessPolicy policy) {
+        return new PrescriptionService(repo, new FakePatientRepo(ALICE), new FakeDoctorPort(DR_SMITH), policy);
     }
 
     // --- issue() ---
@@ -133,6 +142,17 @@ class PrescriptionServiceTest {
                 .isInstanceOf(PrescriptionNotFoundException.class);
     }
 
+    @Test
+    void fulfill_denies_when_access_policy_denies() {
+        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS);
+        var policy = new FakeAccessPolicy(false, true);
+        var service = service(new FakePrescriptionRepo(prescription), policy);
+
+        assertThatThrownBy(() -> service.fulfill(prescription.getId(), ACTOR))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThat(policy.lastPermission).isEqualTo(Permission.DISPENSE_MEDICATION);
+    }
+
     // --- cancel() ---
 
     @Test
@@ -151,6 +171,17 @@ class PrescriptionServiceTest {
 
         assertThatThrownBy(() -> service(new FakePrescriptionRepo(), false).cancel(id, ACTOR, CANCEL_REASON))
                 .isInstanceOf(PrescriptionNotFoundException.class);
+    }
+
+    @Test
+    void cancel_denies_when_access_policy_denies() {
+        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS);
+        var policy = new FakeAccessPolicy(false, true);
+        var service = service(new FakePrescriptionRepo(prescription), policy);
+
+        assertThatThrownBy(() -> service.cancel(prescription.getId(), ACTOR, CANCEL_REASON))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThat(policy.lastPermission).isEqualTo(Permission.CANCEL_PRESCRIPTION);
     }
 
     // --- list() ---
@@ -270,14 +301,24 @@ class PrescriptionServiceTest {
 
     static class FakeAccessPolicy implements AccessPolicy {
         private final boolean isDoctor;
+        private final boolean denyCheck;
+        Permission lastPermission;
 
         FakeAccessPolicy(boolean isDoctor) {
+            this(isDoctor, false);
+        }
+
+        FakeAccessPolicy(boolean isDoctor, boolean denyCheck) {
             this.isDoctor = isDoctor;
+            this.denyCheck = denyCheck;
         }
 
         @Override
         public void check(Permission permission, UserId actor, ResourceId resource) {
-            throw new UnsupportedOperationException();
+            this.lastPermission = permission;
+            if (denyCheck) {
+                throw new AccessDeniedException(permission + " denied for " + actor.value());
+            }
         }
 
         @Override
@@ -288,6 +329,11 @@ class PrescriptionServiceTest {
         @Override
         public boolean isDoctor() {
             return isDoctor;
+        }
+
+        @Override
+        public boolean mayAccessOwnedBy(UserId resourceOwner, UserId actor) {
+            return !isDoctor || resourceOwner.equals(actor);
         }
     }
 

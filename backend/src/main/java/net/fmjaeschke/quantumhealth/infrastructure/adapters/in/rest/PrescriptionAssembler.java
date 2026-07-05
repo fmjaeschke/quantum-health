@@ -4,7 +4,7 @@ import io.quarkus.hal.HalEntityWrapper;
 import io.quarkus.hal.HalLink;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.ws.rs.core.UriInfo;
-import net.fmjaeschke.quantumhealth.application.Permission;
+import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.application.ports.out.AccessPolicy;
 import net.fmjaeschke.quantumhealth.domain.model.Prescription;
 import net.fmjaeschke.quantumhealth.domain.model.PrescriptionPage;
@@ -39,7 +39,7 @@ public class PrescriptionAssembler {
         }
         if (prescription.isCancellable()
                 && accessPolicy.isAllowed(Permission.CANCEL_PRESCRIPTION, actor)
-                && (!accessPolicy.isDoctor() || prescription.getDoctorId().equals(actor))) {
+                && accessPolicy.mayAccessOwnedBy(prescription.getDoctorId(), actor)) {
             links.put("cancel-prescription", new HalLink(selfUri + "/cancel", null, null));
         }
 

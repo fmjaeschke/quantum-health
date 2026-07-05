@@ -1,6 +1,6 @@
 package net.fmjaeschke.quantumhealth.application.usecase;
 
-import net.fmjaeschke.quantumhealth.application.Permission;
+import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.application.exception.AccessDeniedException;
 import net.fmjaeschke.quantumhealth.application.exception.PatientNotFoundException;
 import net.fmjaeschke.quantumhealth.application.ports.out.AccessPolicy;
@@ -51,9 +51,11 @@ class PatientServiceTest {
     @Test
     void read_throws_when_access_denied() {
         var patient = Patient.reconstitute(PatientId.generate(), "Alice", "Smith", LocalDate.of(1990, 5, 15));
-        var service = new PatientService(new FoundPatientRepository(patient), new AlwaysDenyPolicy());
+        var policy = new AlwaysDenyPolicy();
+        var service = new PatientService(new FoundPatientRepository(patient), policy);
 
         assertThatThrownBy(() -> service.findById(patient.getId(), DOCTOR)).isInstanceOf(AccessDeniedException.class);
+        assertThat(policy.lastPermission).isEqualTo(Permission.READ_PATIENT);
     }
 
     @Test
@@ -107,11 +109,19 @@ class PatientServiceTest {
         public boolean isDoctor() {
             return false;
         }
+
+        @Override
+        public boolean mayAccessOwnedBy(UserId resourceOwner, UserId actor) {
+            return true;
+        }
     }
 
     static class AlwaysDenyPolicy implements AccessPolicy {
+        Permission lastPermission;
+
         @Override
         public void check(Permission p, UserId actor, ResourceId resource) {
+            this.lastPermission = p;
             throw new AccessDeniedException(p.name());
         }
 
@@ -123,6 +133,11 @@ class PatientServiceTest {
         @Override
         public boolean isDoctor() {
             return false;
+        }
+
+        @Override
+        public boolean mayAccessOwnedBy(UserId resourceOwner, UserId actor) {
+            return true;
         }
     }
 
@@ -140,6 +155,11 @@ class PatientServiceTest {
         @Override
         public boolean isDoctor() {
             return true;
+        }
+
+        @Override
+        public boolean mayAccessOwnedBy(UserId resourceOwner, UserId actor) {
+            return resourceOwner.equals(actor);
         }
     }
 

@@ -16,13 +16,11 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
-import net.fmjaeschke.quantumhealth.application.Permission;
 import net.fmjaeschke.quantumhealth.application.ports.in.CancelPrescriptionUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.FulfillPrescriptionUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.IssuePrescriptionUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.ListPrescriptionsUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.ReadPrescriptionUseCase;
-import net.fmjaeschke.quantumhealth.application.ports.out.AccessPolicy;
 import net.fmjaeschke.quantumhealth.domain.model.MedicationItem;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.PrescriptionId;
@@ -44,7 +42,6 @@ public class PrescriptionResource {
     private final ListPrescriptionsUseCase listPrescriptions;
     private final FulfillPrescriptionUseCase fulfillPrescription;
     private final CancelPrescriptionUseCase cancelPrescription;
-    private final AccessPolicy accessPolicy;
     private final UserId actor;
     private final PrescriptionAssembler assembler;
 
@@ -56,7 +53,6 @@ public class PrescriptionResource {
                                 ListPrescriptionsUseCase listPrescriptions,
                                 FulfillPrescriptionUseCase fulfillPrescription,
                                 CancelPrescriptionUseCase cancelPrescription,
-                                AccessPolicy accessPolicy,
                                 UserId actor,
                                 PrescriptionAssembler assembler) {
         this.issuePrescription = issuePrescription;
@@ -64,7 +60,6 @@ public class PrescriptionResource {
         this.listPrescriptions = listPrescriptions;
         this.fulfillPrescription = fulfillPrescription;
         this.cancelPrescription = cancelPrescription;
-        this.accessPolicy = accessPolicy;
         this.actor = actor;
         this.assembler = assembler;
     }
@@ -106,7 +101,6 @@ public class PrescriptionResource {
     @Path("/{id}/fulfill")
     @RolesAllowed("PHARMACIST")
     public HalEntityWrapper<PrescriptionResponse> fulfill(@PathParam("id") UUID id) {
-        accessPolicy.check(Permission.DISPENSE_MEDICATION, actor, PrescriptionId.of(id));
         var prescription = fulfillPrescription.fulfill(PrescriptionId.of(id), actor);
         return assembler.toHal(prescription, actor, uriInfo);
     }
@@ -116,7 +110,6 @@ public class PrescriptionResource {
     @RolesAllowed({"DOCTOR", "ADMIN"})
     @Consumes(MediaType.APPLICATION_JSON)
     public HalEntityWrapper<PrescriptionResponse> cancel(@PathParam("id") UUID id, @Valid CancelPrescriptionRequest request) {
-        accessPolicy.check(Permission.CANCEL_PRESCRIPTION, actor, PrescriptionId.of(id));
         var prescription = cancelPrescription.cancel(PrescriptionId.of(id), actor, request.reason());
         return assembler.toHal(prescription, actor, uriInfo);
     }

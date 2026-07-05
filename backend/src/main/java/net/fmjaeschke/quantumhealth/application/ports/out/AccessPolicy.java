@@ -1,12 +1,18 @@
 package net.fmjaeschke.quantumhealth.application.ports.out;
 
-import net.fmjaeschke.quantumhealth.application.Permission;
+import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.domain.model.ResourceId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 
 public interface AccessPolicy {
     /**
-     * Throws AccessDeniedException if the actor is not permitted. No-op if permitted.
+     * Enforces resource-level access for {@code permission}.
+     *
+     * @throws net.fmjaeschke.quantumhealth.application.exception.AccessDeniedException
+     *         if the actor is not permitted; no-op if permitted.
+     * @throws IllegalStateException if resource-level enforcement for {@code permission} is not
+     *         yet wired. Callers must confirm the permission is supported before relying on this
+     *         method (see the switch in the implementation for the wired set).
      */
     void check(Permission permission, UserId actor, ResourceId resource);
 
@@ -19,4 +25,12 @@ public interface AccessPolicy {
      * Returns true if the actor holds the DOCTOR role.
      */
     boolean isDoctor();
+
+    /**
+     * Instance-ownership rule for doctor-scoped resources: a doctor may only act on resources they
+     * own, while non-doctor roles (clerk/admin) get blanket access. Central home for the
+     * {@code !isDoctor() || resourceOwner.equals(actor)} predicate so callers (assemblers, use
+     * cases) don't hand-roll it and drift apart.
+     */
+    boolean mayAccessOwnedBy(UserId resourceOwner, UserId actor);
 }

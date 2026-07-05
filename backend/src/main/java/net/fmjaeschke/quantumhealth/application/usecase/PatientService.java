@@ -3,7 +3,7 @@ package net.fmjaeschke.quantumhealth.application.usecase;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import net.fmjaeschke.quantumhealth.application.Permission;
+import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.application.exception.PatientNotFoundException;
 import net.fmjaeschke.quantumhealth.application.ports.in.ListPatientUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.ReadPatientUseCase;

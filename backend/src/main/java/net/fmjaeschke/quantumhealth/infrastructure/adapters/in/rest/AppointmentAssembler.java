@@ -4,7 +4,7 @@ import io.quarkus.hal.HalEntityWrapper;
 import io.quarkus.hal.HalLink;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.ws.rs.core.UriInfo;
-import net.fmjaeschke.quantumhealth.application.Permission;
+import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.application.ports.out.AccessPolicy;
 import net.fmjaeschke.quantumhealth.domain.model.Appointment;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentPage;
@@ -42,10 +42,12 @@ public class AppointmentAssembler {
         if (appointment.isCheckInnable() && accessPolicy.isAllowed(Permission.CHECK_IN_PATIENT, actor)) {
             links.put("check-in", new HalLink(selfUri + "/check-in", null, null));
         }
-        if (appointment.isStartable() && accessPolicy.isAllowed(Permission.START_ENCOUNTER, actor)) {
+        if (appointment.isStartable() && accessPolicy.isAllowed(Permission.START_ENCOUNTER, actor)
+                && accessPolicy.mayAccessOwnedBy(appointment.getDoctorId(), actor)) {
             links.put("start", new HalLink(selfUri + "/start", null, null));
         }
-        if (appointment.isCancellable() && accessPolicy.isAllowed(Permission.CANCEL_APPOINTMENT, actor)) {
+        if (appointment.isCancellable() && accessPolicy.isAllowed(Permission.CANCEL_APPOINTMENT, actor)
+                && accessPolicy.mayAccessOwnedBy(appointment.getDoctorId(), actor)) {
             links.put("cancel", new HalLink(selfUri + "/cancel", null, null));
         }
 

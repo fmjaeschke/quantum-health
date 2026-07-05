@@ -23,6 +23,7 @@ import net.fmjaeschke.quantumhealth.domain.model.AppointmentPage;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentQuery;
 import net.fmjaeschke.quantumhealth.domain.model.Doctor;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
+import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 
 import java.time.Instant;
@@ -69,6 +70,7 @@ public class AppointmentService implements
 
     @Override
     public Appointment findById(AppointmentId id, UserId actor) {
+        accessPolicy.check(Permission.READ_APPOINTMENT, actor, id);
         return repository.findById(id)
                 .orElseThrow(() -> new AppointmentNotFoundException(id));
     }
@@ -83,6 +85,7 @@ public class AppointmentService implements
 
     @Override
     public Appointment confirm(AppointmentId id, UserId actor) {
+        accessPolicy.check(Permission.CONFIRM_APPOINTMENT, actor, id);
         var appointment = repository.findById(id)
                 .orElseThrow(() -> new AppointmentNotFoundException(id));
         return repository.save(appointment.confirm());
@@ -90,6 +93,7 @@ public class AppointmentService implements
 
     @Override
     public Appointment cancel(AppointmentId id, UserId actor) {
+        accessPolicy.check(Permission.CANCEL_APPOINTMENT, actor, id);
         var appointment = repository.findById(id)
                 .orElseThrow(() -> new AppointmentNotFoundException(id));
         return repository.save(appointment.cancel());
@@ -97,6 +101,7 @@ public class AppointmentService implements
 
     @Override
     public Appointment checkIn(AppointmentId id, UserId actor) {
+        accessPolicy.check(Permission.CHECK_IN_PATIENT, actor, id);
         var appointment = repository.findById(id)
                 .orElseThrow(() -> new AppointmentNotFoundException(id));
         return repository.save(appointment.checkIn());
@@ -104,6 +109,7 @@ public class AppointmentService implements
 
     @Override
     public Appointment start(AppointmentId id, UserId actor) {
+        accessPolicy.check(Permission.START_ENCOUNTER, actor, id);
         var appointment = repository.findById(id)
                 .orElseThrow(() -> new AppointmentNotFoundException(id));
         return repository.save(appointment.start());

@@ -1,4 +1,4 @@
-package net.fmjaeschke.quantumhealth.application;
+package net.fmjaeschke.quantumhealth.domain.model;
 
 public enum Permission {
     // Patient

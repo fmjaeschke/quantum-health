@@ -4,6 +4,7 @@ import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
+import net.fmjaeschke.quantumhealth.application.exception.AccessDeniedException;
 import net.fmjaeschke.quantumhealth.application.exception.AppointmentNotFoundException;
 import net.fmjaeschke.quantumhealth.application.exception.DoctorNotFoundException;
 import net.fmjaeschke.quantumhealth.application.exception.DuplicateAppointmentException;
@@ -182,6 +183,35 @@ class AppointmentResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "dr-jones", roles = {"DOCTOR"})
+    void foreign_doctor_sees_no_start_or_cancel_link_on_colleagues_appointment() {
+        // CONFIRMED is owned by dr-smith; dr-jones is a doctor but not the assigned one.
+        // Server-side checkStartEncounter/checkCancelAppointment would deny these, so the
+        // actionable links must not be advertised (mirrors PrescriptionAssembler's cancel guard).
+        when(readMock.findById(eq(AppointmentId.of(APPT_ID)), any())).thenReturn(CONFIRMED);
+
+        given().when()
+                .get("/appointments/" + APPT_ID)
+                .then()
+                .statusCode(200)
+                .body("_links", not(hasKey("start")))
+                .body("_links", not(hasKey("cancel")));
+    }
+
+    @Test
+    @TestSecurity(user = "dr-smith", roles = {"DOCTOR"})
+    void assigned_doctor_sees_start_and_cancel_links_on_own_confirmed_appointment() {
+        when(readMock.findById(eq(AppointmentId.of(APPT_ID)), any())).thenReturn(CONFIRMED);
+
+        given().when()
+                .get("/appointments/" + APPT_ID)
+                .then()
+                .statusCode(200)
+                .body("_links.start.href", containsString("/start"))
+                .body("_links.cancel.href", containsString("/cancel"));
+    }
+
+    @Test
     @TestSecurity(user = "clerk-1", roles = {"CLERK"})
     void clerk_can_list_all_appointments() {
         when(listMock.list(any(), any())).thenReturn(new AppointmentPage(List.of(PENDING), 1, 0, 20));
@@ -277,6 +307,43 @@ class AppointmentResourceTest {
                 .then()
                 .statusCode(404)
                 .body("status", equalTo(404));
+    }
+
+    @Test
+    @TestSecurity(user = "dr-other", roles = {"DOCTOR"})
+    void foreign_doctor_gets_404_on_get_by_id() {
+        when(readMock.findById(eq(AppointmentId.of(APPT_ID)), any()))
+                .thenThrow(new AppointmentNotFoundException(AppointmentId.of(APPT_ID)));
+
+        given().when()
+                .get("/appointments/" + APPT_ID)
+                .then()
+                .statusCode(404)
+                .body("status", equalTo(404));
+    }
+
+    @Test
+    @TestSecurity(user = "dr-other", roles = {"DOCTOR"})
+    void foreign_doctor_cannot_cancel_appointment() {
+        when(cancelMock.cancel(eq(AppointmentId.of(APPT_ID)), any()))
+                .thenThrow(new AccessDeniedException("cancel appointment " + APPT_ID));
+
+        given().when()
+                .post("/appointments/" + APPT_ID + "/cancel")
+                .then()
+                .statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "dr-other", roles = {"DOCTOR"})
+    void foreign_doctor_cannot_start_appointment() {
+        when(startMock.start(eq(AppointmentId.of(APPT_ID)), any()))
+                .thenThrow(new AccessDeniedException("start encounter " + APPT_ID));
+
+        given().when()
+                .post("/appointments/" + APPT_ID + "/start")
+                .then()
+                .statusCode(403);
     }
 
     @Test
