@@ -45,30 +45,6 @@ class QuarkusAccessPolicyTest {
     @InjectMock
     AppointmentRepository appointmentRepository;
 
-    @Test
-    @TestSecurity(user = "clerk-1", roles = {"CLERK"})
-    void clerk_may_read_patient_without_instance_check() {
-        assertThatNoException().isThrownBy(() -> accessPolicy.check(Permission.READ_PATIENT, UserId.of("clerk-1"), PATIENT));
-    }
-
-    @Test
-    @TestSecurity(user = "admin-1", roles = {"ADMIN"})
-    void admin_may_read_patient_without_instance_check() {
-        assertThatNoException().isThrownBy(() -> accessPolicy.check(Permission.READ_PATIENT, UserId.of("admin-1"), PATIENT));
-    }
-
-    @Test
-    @TestSecurity(user = "nurse-1", roles = {"NURSE"})
-    void nurse_may_read_patient_without_instance_check() {
-        assertThatNoException().isThrownBy(() -> accessPolicy.check(Permission.READ_PATIENT, UserId.of("nurse-1"), PATIENT));
-    }
-
-    @Test
-    @TestSecurity(user = "doctor-1", roles = {"DOCTOR"})
-    void doctor_is_denied_when_no_appointment_exists() {
-        assertThatThrownBy(() -> accessPolicy.check(Permission.READ_PATIENT, UserId.of("doctor-1"), PATIENT)).isInstanceOf(AccessDeniedException.class);
-    }
-
     @ParameterizedTest
     @EnumSource(value = Permission.class, names = {
             "REGISTER_PATIENT", "SCHEDULE_APPOINTMENT", "WRITE_ENCOUNTER",
@@ -78,6 +54,28 @@ class QuarkusAccessPolicyTest {
     void unwired_permissions_fail_closed_with_illegal_state_exception(Permission permission) {
         assertThatThrownBy(() -> accessPolicy.check(permission, UserId.of("clerk-1"), PATIENT))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @TestSecurity(user = "clerk-1", roles = {"CLERK"})
+    void non_doctor_may_access_any_patient_without_treatment_history() {
+        assertThat(accessPolicy.mayAccessPatient(UserId.of("clerk-1"), PATIENT)).isTrue();
+    }
+
+    @Test
+    @TestSecurity(user = "doctor-1", roles = {"DOCTOR"})
+    void doctor_may_access_patient_they_have_treated() {
+        when(appointmentRepository.existsByDoctorAndPatient(UserId.of("doctor-1"), PATIENT)).thenReturn(true);
+
+        assertThat(accessPolicy.mayAccessPatient(UserId.of("doctor-1"), PATIENT)).isTrue();
+    }
+
+    @Test
+    @TestSecurity(user = "doctor-1", roles = {"DOCTOR"})
+    void doctor_may_not_access_patient_never_treated() {
+        when(appointmentRepository.existsByDoctorAndPatient(UserId.of("doctor-1"), PATIENT)).thenReturn(false);
+
+        assertThat(accessPolicy.mayAccessPatient(UserId.of("doctor-1"), PATIENT)).isFalse();
     }
 
     @Test
@@ -95,15 +93,6 @@ class QuarkusAccessPolicyTest {
 
     @Test
     @TestSecurity(user = "clerk-1", roles = {"CLERK"})
-    void mismatched_resource_type_fails_closed_with_access_denied() {
-        // READ_PATIENT expects a PatientId; passing a different ResourceId subtype must be denied,
-        // not silently skipped — this guards the checkTyped fail-closed contract.
-        assertThatThrownBy(() -> accessPolicy.check(Permission.READ_PATIENT, UserId.of("clerk-1"), AppointmentId.generate()))
-                .isInstanceOf(AccessDeniedException.class);
-    }
-
-    @Test
-    @TestSecurity(user = "clerk-1", roles = {"CLERK"})
     void clerk_may_confirm_appointment_without_instance_check() {
         var apptId = AppointmentId.generate();
         assertThatNoException().isThrownBy(
@@ -116,14 +105,6 @@ class QuarkusAccessPolicyTest {
         var apptId = AppointmentId.generate();
         assertThatNoException().isThrownBy(
                 () -> accessPolicy.check(Permission.CHECK_IN_PATIENT, UserId.of("clerk-1"), apptId));
-    }
-
-    @Test
-    @TestSecurity(user = "clerk-1", roles = {"CLERK"})
-    void read_patient_with_mismatched_resource_type_is_denied_not_a_class_cast_exception() {
-        var appointmentId = AppointmentId.generate();
-        assertThatThrownBy(() -> accessPolicy.check(Permission.READ_PATIENT, UserId.of("clerk-1"), appointmentId))
-                .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
@@ -214,46 +195,6 @@ class QuarkusAccessPolicyTest {
 
         assertThatNoException().isThrownBy(
                 () -> accessPolicy.check(Permission.CANCEL_PRESCRIPTION, UserId.of("admin-1"), rxId));
-    }
-
-    @Test
-    @TestSecurity(user = "doctor-1", roles = {"DOCTOR"})
-    void doctor_can_read_own_appointment() {
-        var apptId = AppointmentId.generate();
-        var appointment = Appointment.reconstitute(apptId, PatientId.generate(), "Alice",
-                UserId.of("doctor-1"), "Dr. One", Instant.now(), "checkup",
-                AppointmentStatus.PENDING);
-        when(appointmentRepository.findById(apptId)).thenReturn(Optional.of(appointment));
-
-        assertThatNoException().isThrownBy(
-                () -> accessPolicy.check(Permission.READ_APPOINTMENT, UserId.of("doctor-1"), apptId));
-    }
-
-    @Test
-    @TestSecurity(user = "doctor-1", roles = {"DOCTOR"})
-    void doctor_cannot_read_colleague_appointment() {
-        var apptId = AppointmentId.generate();
-        var appointment = Appointment.reconstitute(apptId, PatientId.generate(), "Alice",
-                UserId.of("doctor-2"), "Dr. Two", Instant.now(), "checkup",
-                AppointmentStatus.PENDING);
-        when(appointmentRepository.findById(apptId)).thenReturn(Optional.of(appointment));
-
-        assertThatThrownBy(
-                () -> accessPolicy.check(Permission.READ_APPOINTMENT, UserId.of("doctor-1"), apptId))
-                .isInstanceOf(AccessDeniedException.class);
-    }
-
-    @Test
-    @TestSecurity(user = "nurse-1", roles = {"NURSE"})
-    void nurse_may_read_any_appointment_without_instance_check() {
-        var apptId = AppointmentId.generate();
-        var appointment = Appointment.reconstitute(apptId, PatientId.generate(), "Alice",
-                UserId.of("doctor-2"), "Dr. Two", Instant.now(), "checkup",
-                AppointmentStatus.PENDING);
-        when(appointmentRepository.findById(apptId)).thenReturn(Optional.of(appointment));
-
-        assertThatNoException().isThrownBy(
-                () -> accessPolicy.check(Permission.READ_APPOINTMENT, UserId.of("nurse-1"), apptId));
     }
 
     @Test

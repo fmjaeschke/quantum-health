@@ -39,7 +39,46 @@ class AccessPolicyEnforcementTest {
             methods().that(arePublicUseCaseMethodsTakingAResourceId())
                     .should(consultAccessPolicy())
                     .because("a use-case method that receives a ResourceId must consult AccessPolicy "
-                            + "(check(), isDoctor() or mayAccessOwnedBy()); otherwise a forgotten call silently ships an authorization gap");
+                            + "(check(), isDoctor(), mayAccessOwnedBy() or mayAccessPatient()); otherwise a forgotten call silently ships an authorization gap");
+
+    /**
+     * Read methods (by convention, named {@code find*}) must hide existence from a non-owner
+     * rather than confirm it: they may only consult AccessPolicy via the boolean
+     * mayAccessOwnedBy()/mayAccessPatient() predicates and fold a denial into the resource's own
+     * NotFoundException, never via check(), which throws AccessDeniedException (403) and thereby
+     * leaks that the resource exists. See issues/done/access-read-403-vs-404-inconsistency.md.
+     */
+    @ArchTest
+    static final ArchRule find_methods_taking_a_resource_id_must_not_call_check =
+            methods().that(arePublicFindMethodsTakingAResourceId())
+                    .should(notCallAccessPolicyCheck())
+                    .because("a find* read method must hide existence on denial (fold into its NotFoundException) "
+                            + "rather than call AccessPolicy.check(), which throws AccessDeniedException (403) "
+                            + "and leaks that the resource exists to a non-owner");
+
+    private static DescribedPredicate<JavaMethod> arePublicFindMethodsTakingAResourceId() {
+        return DescribedPredicate.describe(
+                "public use-case methods named find* that take a ResourceId parameter",
+                method -> method.getModifiers().contains(JavaModifier.PUBLIC)
+                        && method.getOwner().getPackageName().contains(".application.usecase")
+                        && method.getName().startsWith("find")
+                        && method.getRawParameterTypes().stream().anyMatch(p -> p.isAssignableTo(ResourceId.class)));
+    }
+
+    private static ArchCondition<JavaMethod> notCallAccessPolicyCheck() {
+        return new ArchCondition<>("never call AccessPolicy.check()") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                boolean callsCheck = method.getMethodCallsFromSelf().stream()
+                        .anyMatch(call -> targetsAccessPolicy(call) && call.getTarget().getName().equals("check"));
+                if (callsCheck) {
+                    events.add(SimpleConditionEvent.violated(method, method.getFullName()
+                            + " is a find* read method but calls AccessPolicy.check(), which leaks resource "
+                            + "existence via AccessDeniedException (403) instead of hiding it as NotFound (404)"));
+                }
+            }
+        };
+    }
 
     private static DescribedPredicate<JavaMethod> arePublicUseCaseMethodsTakingAResourceId() {
         return DescribedPredicate.describe(
@@ -52,7 +91,7 @@ class AccessPolicyEnforcementTest {
     }
 
     private static ArchCondition<JavaMethod> consultAccessPolicy() {
-        return new ArchCondition<>("consult AccessPolicy via check(), isDoctor() or mayAccessOwnedBy()") {
+        return new ArchCondition<>("consult AccessPolicy via check(), isDoctor(), mayAccessOwnedBy() or mayAccessPatient()") {
             @Override
             public void check(JavaMethod method, ConditionEvents events) {
                 boolean consults = method.getMethodCallsFromSelf().stream().anyMatch(
@@ -72,6 +111,7 @@ class AccessPolicyEnforcementTest {
     private static boolean isPolicyConsultation(String methodName) {
         return methodName.equals("check")
                 || methodName.equals("isDoctor")
-                || methodName.equals("mayAccessOwnedBy");
+                || methodName.equals("mayAccessOwnedBy")
+                || methodName.equals("mayAccessPatient");
     }
 }

@@ -3,11 +3,9 @@ package net.fmjaeschke.quantumhealth.domain.model;
 public enum Permission {
     // Patient
     REGISTER_PATIENT,
-    READ_PATIENT,
 
     // Appointment
     SCHEDULE_APPOINTMENT,
-    READ_APPOINTMENT,
     CONFIRM_APPOINTMENT,
     CANCEL_APPOINTMENT,
     CHECK_IN_PATIENT,

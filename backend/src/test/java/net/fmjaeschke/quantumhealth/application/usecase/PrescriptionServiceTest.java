@@ -335,6 +335,11 @@ class PrescriptionServiceTest {
         public boolean mayAccessOwnedBy(UserId resourceOwner, UserId actor) {
             return !isDoctor || resourceOwner.equals(actor);
         }
+
+        @Override
+        public boolean mayAccessPatient(UserId actor, PatientId patientId) {
+            return !isDoctor;
+        }
     }
 
     static class FakePatientRepo implements PatientRepository {

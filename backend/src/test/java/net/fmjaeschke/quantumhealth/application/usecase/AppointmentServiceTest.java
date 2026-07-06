@@ -135,14 +135,12 @@ class AppointmentServiceTest {
     }
 
     @Test
-    void findById_denies_non_assigned_doctor() {
+    void findById_throws_AppointmentNotFoundException_when_doctor_is_not_owner() {
         var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON);
-        var policy = new FakeAccessPolicy(true, true);
-        var service = service(new FakeRepo(appointment), policy);
+        var service = service(new FakeRepo(appointment), true, false);
 
         assertThatThrownBy(() -> service.findById(appointment.getId(), UserId.of("dr-other")))
-                .isInstanceOf(AccessDeniedException.class);
-        assertThat(policy.lastPermission).isEqualTo(Permission.READ_APPOINTMENT);
+                .isInstanceOf(AppointmentNotFoundException.class);
     }
 
     @Test
@@ -407,6 +405,11 @@ class AppointmentServiceTest {
         @Override
         public boolean mayAccessOwnedBy(UserId resourceOwner, UserId actor) {
             return !isDoctor || resourceOwner.equals(actor);
+        }
+
+        @Override
+        public boolean mayAccessPatient(UserId actor, PatientId patientId) {
+            return !isDoctor;
         }
     }
 

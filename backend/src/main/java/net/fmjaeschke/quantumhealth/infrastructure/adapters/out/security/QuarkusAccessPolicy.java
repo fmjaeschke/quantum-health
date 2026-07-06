@@ -46,9 +46,7 @@ public class QuarkusAccessPolicy implements AccessPolicy {
         // Assigning the switch to an (unnamed) variable forces the compiler to treat it as a switch
         // expression, which rejects the method at compile time if a Permission is left unhandled.
         Void _ = switch (permission) {
-            case READ_PATIENT       -> { checkTyped(resource, PatientId.class,      id -> checkReadPatient(actor, id));      yield null; }
             case CANCEL_PRESCRIPTION -> { checkTyped(resource, PrescriptionId.class, id -> checkCancelPrescription(actor, id)); yield null; }
-            case READ_APPOINTMENT   -> { checkTyped(resource, AppointmentId.class,  id -> checkDoctorOwnsAppointment(actor, id, "read appointment"));   yield null; }
             case CANCEL_APPOINTMENT -> { checkTyped(resource, AppointmentId.class,  id -> checkDoctorOwnsAppointment(actor, id, "cancel appointment")); yield null; }
             case START_ENCOUNTER    -> { checkTyped(resource, AppointmentId.class,  id -> checkStartEncounter(actor, id));   yield null; }
             // role check via @RolesAllowed is the sole gate; any pharmacist may fulfill any prescription
@@ -81,7 +79,7 @@ public class QuarkusAccessPolicy implements AccessPolicy {
                 .ifPresent(p -> denyIfNotOwner(p.getDoctorId(), actor, "cancel prescription " + prescriptionId.value()));
     }
 
-    // Shared doctor-ownership check for appointment reads/cancels: non-doctors (clerk/nurse/admin)
+    // Doctor-ownership check for appointment cancellation: non-doctors (clerk/nurse/admin)
     // get blanket access, a doctor only their own appointments. `action` is the deny-message prefix.
     //
     // Note: the appointment is re-fetched here even though the calling use case fetches it again
@@ -102,16 +100,6 @@ public class QuarkusAccessPolicy implements AccessPolicy {
                 .ifPresent(a -> denyIfNotOwner(a.getDoctorId(), actor, "start encounter " + appointmentId.value()));
     }
 
-    private void checkReadPatient(UserId actor, PatientId patientId) {
-        if (!isDoctor())
-            return;  // only doctors need instance check
-        // Ever-treated model: any appointment (including historical/cancelled) grants read access.
-        // Doctors retain visibility once a care relationship has been established.
-        if (!appointments.existsByDoctorAndPatient(actor, patientId)) {
-            deny("read patient " + patientId.value());
-        }
-    }
-
     @Override
     public boolean isDoctor() {
         return identity.hasRole("DOCTOR");
@@ -120,6 +108,13 @@ public class QuarkusAccessPolicy implements AccessPolicy {
     @Override
     public boolean mayAccessOwnedBy(UserId resourceOwner, UserId actor) {
         return !isDoctor() || resourceOwner.equals(actor);
+    }
+
+    @Override
+    public boolean mayAccessPatient(UserId actor, PatientId patientId) {
+        // Ever-treated model: any appointment (including historical/cancelled) grants read access.
+        // Doctors retain visibility once a care relationship has been established.
+        return !isDoctor() || appointments.existsByDoctorAndPatient(actor, patientId);
     }
 
     private boolean isClerk() {

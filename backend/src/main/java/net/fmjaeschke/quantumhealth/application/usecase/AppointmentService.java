@@ -70,9 +70,12 @@ public class AppointmentService implements
 
     @Override
     public Appointment findById(AppointmentId id, UserId actor) {
-        accessPolicy.check(Permission.READ_APPOINTMENT, actor, id);
-        return repository.findById(id)
+        var appointment = repository.findById(id)
                 .orElseThrow(() -> new AppointmentNotFoundException(id));
+        if (!accessPolicy.mayAccessOwnedBy(appointment.getDoctorId(), actor)) {
+            throw new AppointmentNotFoundException(id);
+        }
+        return appointment;
     }
 
     @Override

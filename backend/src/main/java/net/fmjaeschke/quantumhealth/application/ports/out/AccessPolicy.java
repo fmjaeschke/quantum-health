@@ -1,5 +1,6 @@
 package net.fmjaeschke.quantumhealth.application.ports.out;
 
+import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.domain.model.ResourceId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
@@ -33,4 +34,12 @@ public interface AccessPolicy {
      * cases) don't hand-roll it and drift apart.
      */
     boolean mayAccessOwnedBy(UserId resourceOwner, UserId actor);
+
+    /**
+     * Instance-access rule for patients: a doctor may only read a patient they have ever treated
+     * (established via an existing appointment), while non-doctor roles get blanket access.
+     * Query-based (unlike {@link #mayAccessOwnedBy}), so it's a dedicated method rather than folded
+     * into that owner-equality predicate.
+     */
+    boolean mayAccessPatient(UserId actor, PatientId patientId);
 }

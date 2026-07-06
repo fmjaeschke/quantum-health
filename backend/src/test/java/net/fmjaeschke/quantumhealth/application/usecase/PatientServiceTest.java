@@ -49,13 +49,11 @@ class PatientServiceTest {
     }
 
     @Test
-    void read_throws_when_access_denied() {
+    void read_throws_PatientNotFoundException_when_doctor_never_treated_patient() {
         var patient = Patient.reconstitute(PatientId.generate(), "Alice", "Smith", LocalDate.of(1990, 5, 15));
-        var policy = new AlwaysDenyPolicy();
-        var service = new PatientService(new FoundPatientRepository(patient), policy);
+        var service = new PatientService(new FoundPatientRepository(patient), new AlwaysDenyPolicy());
 
-        assertThatThrownBy(() -> service.findById(patient.getId(), DOCTOR)).isInstanceOf(AccessDeniedException.class);
-        assertThat(policy.lastPermission).isEqualTo(Permission.READ_PATIENT);
+        assertThatThrownBy(() -> service.findById(patient.getId(), DOCTOR)).isInstanceOf(PatientNotFoundException.class);
     }
 
     @Test
@@ -114,14 +112,16 @@ class PatientServiceTest {
         public boolean mayAccessOwnedBy(UserId resourceOwner, UserId actor) {
             return true;
         }
+
+        @Override
+        public boolean mayAccessPatient(UserId actor, PatientId patientId) {
+            return true;
+        }
     }
 
     static class AlwaysDenyPolicy implements AccessPolicy {
-        Permission lastPermission;
-
         @Override
         public void check(Permission p, UserId actor, ResourceId resource) {
-            this.lastPermission = p;
             throw new AccessDeniedException(p.name());
         }
 
@@ -138,6 +138,11 @@ class PatientServiceTest {
         @Override
         public boolean mayAccessOwnedBy(UserId resourceOwner, UserId actor) {
             return true;
+        }
+
+        @Override
+        public boolean mayAccessPatient(UserId actor, PatientId patientId) {
+            return false;
         }
     }
 
@@ -160,6 +165,11 @@ class PatientServiceTest {
         @Override
         public boolean mayAccessOwnedBy(UserId resourceOwner, UserId actor) {
             return resourceOwner.equals(actor);
+        }
+
+        @Override
+        public boolean mayAccessPatient(UserId actor, PatientId patientId) {
+            return true;
         }
     }
 

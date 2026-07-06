@@ -3,7 +3,6 @@ package net.fmjaeschke.quantumhealth.application.usecase;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.application.exception.PatientNotFoundException;
 import net.fmjaeschke.quantumhealth.application.ports.in.ListPatientUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.ReadPatientUseCase;
@@ -40,9 +39,12 @@ public class PatientService implements RegisterPatientUseCase, ReadPatientUseCas
 
     @Override
     public Patient findById(PatientId patientId, UserId actor) {
-        accessPolicy.check(Permission.READ_PATIENT, actor, patientId);
-        return patients.findById(patientId)
+        var patient = patients.findById(patientId)
                 .orElseThrow(() -> new PatientNotFoundException(patientId));
+        if (!accessPolicy.mayAccessPatient(actor, patientId)) {
+            throw new PatientNotFoundException(patientId);
+        }
+        return patient;
     }
 
     @Override
