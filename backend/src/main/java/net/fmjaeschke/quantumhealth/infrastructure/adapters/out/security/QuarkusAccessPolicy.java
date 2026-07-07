@@ -79,8 +79,9 @@ public class QuarkusAccessPolicy implements AccessPolicy {
                 .ifPresent(p -> denyIfNotOwner(p.getDoctorId(), actor, "cancel prescription " + prescriptionId.value()));
     }
 
-    // Doctor-ownership check for appointment cancellation: non-doctors (clerk/nurse/admin)
+    // Doctor-ownership check for appointment cancellation: non-doctors (clerk/admin)
     // get blanket access, a doctor only their own appointments. `action` is the deny-message prefix.
+    // (Nurses can't reach this method at all: cancel's @RolesAllowed excludes NURSE.)
     //
     // Note: the appointment is re-fetched here even though the calling use case fetches it again
     // right after check() returns. Both reads are by primary key within the same @Transactional

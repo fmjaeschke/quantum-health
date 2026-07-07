@@ -63,6 +63,18 @@ class QuarkusAccessPolicyTest {
     }
 
     @Test
+    @TestSecurity(user = "admin-1", roles = {"ADMIN"})
+    void admin_may_access_any_patient_without_treatment_history() {
+        assertThat(accessPolicy.mayAccessPatient(UserId.of("admin-1"), PATIENT)).isTrue();
+    }
+
+    @Test
+    @TestSecurity(user = "nurse-1", roles = {"NURSE"})
+    void nurse_may_access_any_patient_without_treatment_history() {
+        assertThat(accessPolicy.mayAccessPatient(UserId.of("nurse-1"), PATIENT)).isTrue();
+    }
+
+    @Test
     @TestSecurity(user = "doctor-1", roles = {"DOCTOR"})
     void doctor_may_access_patient_they_have_treated() {
         when(appointmentRepository.existsByDoctorAndPatient(UserId.of("doctor-1"), PATIENT)).thenReturn(true);
@@ -89,6 +101,18 @@ class QuarkusAccessPolicyTest {
     @TestSecurity(user = "clerk-1", roles = {"CLERK"})
     void non_doctor_may_access_any_resource() {
         assertThat(accessPolicy.mayAccessOwnedBy(UserId.of("doctor-2"), UserId.of("clerk-1"))).isTrue();
+    }
+
+    @Test
+    @TestSecurity(user = "admin-1", roles = {"ADMIN"})
+    void admin_may_access_any_resource() {
+        assertThat(accessPolicy.mayAccessOwnedBy(UserId.of("doctor-2"), UserId.of("admin-1"))).isTrue();
+    }
+
+    @Test
+    @TestSecurity(user = "nurse-1", roles = {"NURSE"})
+    void nurse_may_access_any_resource() {
+        assertThat(accessPolicy.mayAccessOwnedBy(UserId.of("doctor-2"), UserId.of("nurse-1"))).isTrue();
     }
 
     @Test

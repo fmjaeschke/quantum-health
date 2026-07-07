@@ -100,6 +100,18 @@ describe('errorInterceptor', () => {
     expect(showSpy).toHaveBeenCalledWith('Access denied', 'Http failure response for /api/test: 403 Forbidden');
   });
 
+  it('shows generic error, not "Access denied", when a read is hidden as 404 for a non-owner', () => {
+    // Backend converges Appointment/Patient/Prescription reads on 404 for non-owner doctors
+    // instead of 403, so existence is never leaked. This asserts the interceptor's generic-4xx
+    // branch (not its 403 branch) fires for that response. See issues/034.
+    const showSpy = vi.spyOn(errorService, 'show');
+    http.get('/api/appointments/123').subscribe({ error: () => {} });
+    controller
+      .expectOne('/api/appointments/123')
+      .flush({ detail: 'Appointment not found' }, { status: 404, statusText: 'Not Found' });
+    expect(showSpy).toHaveBeenCalledWith('Error', 'Appointment not found');
+  });
+
   it('does not call show() on 401', () => {
     const showSpy = vi.spyOn(errorService, 'show');
     http.get('/api/test').subscribe({ error: () => {} });

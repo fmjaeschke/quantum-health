@@ -14,7 +14,9 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
 import net.fmjaeschke.quantumhealth.application.ports.out.AccessPolicy;
 import net.fmjaeschke.quantumhealth.domain.model.ResourceId;
 
+import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 
@@ -23,6 +25,10 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
  * {@link AccessPolicy} — either via {@code check(...)} for instance-level enforcement, or via
  * {@code isDoctor()} for the scoping/ownership variants. A newly added guard method that forgets
  * to consult the policy fails this test, instead of silently shipping an authorization gap.
+ *
+ * <p>Both {@link ArchCondition}s below look transitively through methods a guarded method calls
+ * (not just its own body), so extracting a shared helper (e.g. a common "load-or-hide" block)
+ * doesn't blind either rule.
  */
 @AnalyzeClasses(packages = "net.fmjaeschke.quantumhealth", importOptions = ImportOption.DoNotIncludeTests.class)
 class AccessPolicyEnforcementTest {
@@ -57,24 +63,20 @@ class AccessPolicyEnforcementTest {
                             + "and leaks that the resource exists to a non-owner");
 
     private static DescribedPredicate<JavaMethod> arePublicFindMethodsTakingAResourceId() {
-        return DescribedPredicate.describe(
-                "public use-case methods named find* that take a ResourceId parameter",
-                method -> method.getModifiers().contains(JavaModifier.PUBLIC)
-                        && method.getOwner().getPackageName().contains(".application.usecase")
-                        && method.getName().startsWith("find")
-                        && method.getRawParameterTypes().stream().anyMatch(p -> p.isAssignableTo(ResourceId.class)));
+        return arePublicUseCaseMethodsTakingAResourceId()
+                .and(DescribedPredicate.describe("named find*", method -> method.getName().startsWith("find")));
     }
 
     private static ArchCondition<JavaMethod> notCallAccessPolicyCheck() {
-        return new ArchCondition<>("never call AccessPolicy.check()") {
+        return new ArchCondition<>("never call AccessPolicy.check(), directly or transitively") {
             @Override
             public void check(JavaMethod method, ConditionEvents events) {
-                boolean callsCheck = method.getMethodCallsFromSelf().stream()
-                        .anyMatch(call -> targetsAccessPolicy(call) && call.getTarget().getName().equals("check"));
-                if (callsCheck) {
+                if (transitivelyCalls(method, call -> targetsAccessPolicy(call) && call.getTarget().getName().equals("check"),
+                        new HashSet<>())) {
                     events.add(SimpleConditionEvent.violated(method, method.getFullName()
-                            + " is a find* read method but calls AccessPolicy.check(), which leaks resource "
-                            + "existence via AccessDeniedException (403) instead of hiding it as NotFound (404)"));
+                            + " is a find* read method but calls AccessPolicy.check() (directly or via a helper it "
+                            + "calls), which leaks resource existence via AccessDeniedException (403) instead of "
+                            + "hiding it as NotFound (404)"));
                 }
             }
         };
@@ -91,17 +93,44 @@ class AccessPolicyEnforcementTest {
     }
 
     private static ArchCondition<JavaMethod> consultAccessPolicy() {
-        return new ArchCondition<>("consult AccessPolicy via check(), isDoctor(), mayAccessOwnedBy() or mayAccessPatient()") {
+        return new ArchCondition<>(
+                "consult AccessPolicy via check(), isDoctor(), mayAccessOwnedBy() or mayAccessPatient(), "
+                        + "directly or transitively") {
             @Override
             public void check(JavaMethod method, ConditionEvents events) {
-                boolean consults = method.getMethodCallsFromSelf().stream().anyMatch(
-                        call -> targetsAccessPolicy(call) && isPolicyConsultation(call.getName()));
+                boolean consults = transitivelyCalls(method,
+                        call -> targetsAccessPolicy(call) && isPolicyConsultation(call.getName()), new HashSet<>());
                 if (!consults) {
                     events.add(SimpleConditionEvent.violated(method, method.getFullName()
-                            + " takes a ResourceId but never consults AccessPolicy (check/isDoctor/mayAccessOwnedBy)"));
+                            + " takes a ResourceId but never consults AccessPolicy "
+                            + "(check/isDoctor/mayAccessOwnedBy/mayAccessPatient), directly or via a helper it calls"));
                 }
             }
         };
+    }
+
+    /**
+     * Follows {@code method}'s calls into same-codebase helpers it invokes, so a rule still fires
+     * (or still stays quiet) after the "load-then-check" block is extracted into a shared method.
+     * {@code visited} guards against infinite recursion on recursive/mutually-recursive call graphs.
+     */
+    private static boolean transitivelyCalls(JavaMethod method, Predicate<JavaMethodCall> matches,
+                                              Set<JavaMethod> visited) {
+        if (!visited.add(method)) {
+            return false;
+        }
+        for (JavaMethodCall call : method.getMethodCallsFromSelf()) {
+            if (matches.test(call)) {
+                return true;
+            }
+            boolean foundInCallee = call.getTarget().resolveMember()
+                    .filter(callee -> transitivelyCalls(callee, matches, visited))
+                    .isPresent();
+            if (foundInCallee) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean targetsAccessPolicy(JavaMethodCall call) {
