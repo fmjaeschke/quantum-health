@@ -16,10 +16,13 @@ import net.fmjaeschke.quantumhealth.application.ports.in.ListAppointmentsUseCase
 import net.fmjaeschke.quantumhealth.application.ports.in.ReadAppointmentUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.ScheduleAppointmentUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.StartEncounterUseCase;
+import net.fmjaeschke.quantumhealth.application.ports.out.EncounterRepository;
 import net.fmjaeschke.quantumhealth.domain.model.Appointment;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentId;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentPage;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentStatus;
+import net.fmjaeschke.quantumhealth.domain.model.Encounter;
+import net.fmjaeschke.quantumhealth.domain.model.EncounterId;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 import org.junit.jupiter.api.Test;
@@ -29,6 +32,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
@@ -97,6 +101,7 @@ class AppointmentResourceTest {
     @InjectMock CancelAppointmentUseCase cancelMock;
     @InjectMock CheckInUseCase checkInMock;
     @InjectMock StartEncounterUseCase startMock;
+    @InjectMock EncounterRepository encounterRepoMock;
 
     @Test
     @TestSecurity(user = "clerk-1", roles = {"CLERK"})
@@ -179,7 +184,40 @@ class AppointmentResourceTest {
                 .statusCode(200)
                 .body("_links.start.href", containsString("/start"))
                 .body("_links", not(hasKey("check-in")))
-                .body("_links", not(hasKey("confirm")));
+                .body("_links", not(hasKey("confirm")))
+                .body("_links", not(hasKey("medical-encounter")));
+    }
+
+    @Test
+    @TestSecurity(user = "dr-smith", roles = {"DOCTOR"})
+    void in_progress_appointment_has_medical_encounter_link() {
+        var encounterId = EncounterId.generate();
+        var encounter = Encounter.reconstitute(encounterId, AppointmentId.of(APPT_ID),
+                UserId.of("dr-smith"), PatientId.of(PATIENT_UUID), null, List.of());
+        when(readMock.findById(eq(AppointmentId.of(APPT_ID)), any())).thenReturn(IN_PROGRESS);
+        when(encounterRepoMock.findByAppointmentId(AppointmentId.of(APPT_ID))).thenReturn(Optional.of(encounter));
+
+        given().when()
+                .get("/appointments/" + APPT_ID)
+                .then()
+                .statusCode(200)
+                .body("_links.'medical-encounter'.href", containsString("/encounters/" + encounterId.value()));
+    }
+
+    @Test
+    @TestSecurity(user = "dr-smith", roles = {"DOCTOR"})
+    void completed_encounter_has_no_medical_encounter_link() {
+        var encounterId = EncounterId.generate();
+        var encounter = Encounter.reconstitute(encounterId, AppointmentId.of(APPT_ID),
+                UserId.of("dr-smith"), PatientId.of(PATIENT_UUID), Instant.now(), List.of());
+        when(readMock.findById(eq(AppointmentId.of(APPT_ID)), any())).thenReturn(IN_PROGRESS);
+        when(encounterRepoMock.findByAppointmentId(AppointmentId.of(APPT_ID))).thenReturn(Optional.of(encounter));
+
+        given().when()
+                .get("/appointments/" + APPT_ID)
+                .then()
+                .statusCode(200)
+                .body("_links", not(hasKey("medical-encounter")));
     }
 
     @Test

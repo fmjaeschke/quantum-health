@@ -1,8 +1,8 @@
 package net.fmjaeschke.quantumhealth.infrastructure.adapters.out.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
-import io.quarkus.panache.common.Sort;
+import jakarta.data.page.PageRequest;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import net.fmjaeschke.quantumhealth.application.ports.out.AppointmentRepository;
 import net.fmjaeschke.quantumhealth.application.ports.out.PatientRepository;
 import net.fmjaeschke.quantumhealth.domain.model.Patient;
@@ -10,14 +10,18 @@ import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.PatientPage;
 import net.fmjaeschke.quantumhealth.domain.model.PatientQuery;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
+import org.hibernate.query.Order;
+import org.hibernate.query.restriction.Restriction;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @ApplicationScoped
-public class JpaPatientRepository implements PatientRepository, PanacheRepositoryBase<JpaPatient, UUID> {
+public class JpaPatientRepository implements PatientRepository {
+
+    @Inject
+    JpaPatientDataRepository dataRepository;
 
     private final AppointmentRepository appointmentRepository;
 
@@ -27,13 +31,13 @@ public class JpaPatientRepository implements PatientRepository, PanacheRepositor
 
     @Override
     public PatientId save(Patient patient) {
-        persist(JpaPatient.from(patient));
+        dataRepository.insert(JpaPatient.from(patient));
         return patient.getId();
     }
 
     @Override
     public Optional<Patient> findById(PatientId id) {
-        return findByIdOptional(id.value()).map(JpaPatient::toDomain);
+        return dataRepository.findById(id.value()).map(JpaPatient::toDomain);
     }
 
     @Override
@@ -54,34 +58,43 @@ public class JpaPatientRepository implements PatientRepository, PanacheRepositor
     }
 
     private PatientPage executeQuery(List<UUID> doctorPatientIds, PatientQuery query) {
-        var jpql = new StringBuilder("FROM JpaPatient p WHERE 1=1");
-        var params = new HashMap<String, Object>();
+        // TODO: Revisit when Jakarta Data 1.1 is supported by Quarkus.
+        // This can likely be replaced with Jakarta Data's standard Restrict/Order API
+        // instead of Hibernate-specific Restriction/Order types.
+        Restriction<JpaPatient> restriction = Restriction.unrestricted();
 
         if (doctorPatientIds != null) {
-            jpql.append(" AND p.id IN :ids");
-            params.put("ids", doctorPatientIds);
+            restriction = restriction.and(Restriction.in(JpaPatient_.id, doctorPatientIds));
         }
-        query.search()
-                .ifPresent(s -> {
-                    jpql.append(" AND (LOWER(p.firstName) LIKE :search OR LOWER(p.lastName) LIKE :search)");
-                    params.put("search", "%" + s.toLowerCase() + "%");
-                });
-        query.dateOfBirth()
-                .ifPresent(dob -> {
-                    jpql.append(" AND p.dateOfBirth = :dob");
-                    params.put("dob", dob);
-                });
-        var sort = Sort.by("p." + query.sortField().jpqlField,
-                query.sortDirection() == PatientQuery.SortDirection.DESC
-                        ? Sort.Direction.Descending
-                        : Sort.Direction.Ascending);
+        if (query.search().isPresent()) {
+            var s = query.search().get();
+            restriction = restriction.and(
+                    Restriction.contains(JpaPatient_.firstName, s, false)
+                            .or(Restriction.contains(JpaPatient_.lastName, s, false)));
+        }
+        if (query.dateOfBirth().isPresent()) {
+            restriction = restriction.and(Restriction.equal(JpaPatient_.dateOfBirth, query.dateOfBirth().get()));
+        }
 
-        var pq = find(jpql.toString(), sort, params);
-        pq.page(query.page(), query.size());
-        var total = pq.count();
-        var result = pq.stream()
-                .map(JpaPatient::toDomain)
-                .toList();
-        return new PatientPage(result, total, query.page(), query.size());
+        var order = switch (query.sortField()) {
+            case FIRST_NAME -> query.sortDirection() == PatientQuery.SortDirection.DESC
+                    ? Order.desc(JpaPatient_.firstName)
+                    : Order.asc(JpaPatient_.firstName);
+            case LAST_NAME -> query.sortDirection() == PatientQuery.SortDirection.DESC
+                    ? Order.desc(JpaPatient_.lastName)
+                    : Order.asc(JpaPatient_.lastName);
+            case DATE_OF_BIRTH -> query.sortDirection() == PatientQuery.SortDirection.DESC
+                    ? Order.desc(JpaPatient_.dateOfBirth)
+                    : Order.asc(JpaPatient_.dateOfBirth);
+        };
+
+        // Jakarta Data's PageRequest is 1-indexed; the domain/port convention is 0-indexed.
+        // The conversion happens only here, at the adapter boundary - the returned
+        // PatientPage below still reports the original 0-indexed page.
+        var pageRequest = PageRequest.ofPage(query.page() + 1).size(query.size());
+        var result = dataRepository.matching(restriction, order, pageRequest);
+
+        var patients = result.stream().map(JpaPatient::toDomain).toList();
+        return new PatientPage(patients, result.totalElements(), query.page(), query.size());
     }
 }

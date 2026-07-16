@@ -37,8 +37,12 @@ class AccessPolicyEnforcementTest {
      * Creation flows reference a parent {@link ResourceId} (e.g. the patient) only to build a new
      * entity; they are intentionally not resource-level guarded here (role gating happens at the
      * REST boundary). Adding a method to this set is a deliberate, reviewable act.
+     *
+     * <p>{@code generate} ({@link net.fmjaeschke.quantumhealth.application.usecase.InvoiceService})
+     * is invoked by the {@code EncounterCompletedEvent} CDI listener, not a REST endpoint — there is
+     * no authenticated actor to check a permission against, so it is exempted the same way.
      */
-    private static final Set<String> CREATION_METHODS_WITHOUT_RESOURCE_CHECK = Set.of("schedule", "issue");
+    private static final Set<String> CREATION_METHODS_WITHOUT_RESOURCE_CHECK = Set.of("schedule", "issue", "generate");
 
     @ArchTest
     static final ArchRule use_case_methods_taking_a_resource_id_must_consult_access_policy =

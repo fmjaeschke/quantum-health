@@ -5,8 +5,10 @@ import jakarta.enterprise.context.ApplicationScoped;
 import net.fmjaeschke.quantumhealth.application.exception.AccessDeniedException;
 import net.fmjaeschke.quantumhealth.application.ports.out.AccessPolicy;
 import net.fmjaeschke.quantumhealth.application.ports.out.AppointmentRepository;
+import net.fmjaeschke.quantumhealth.application.ports.out.EncounterRepository;
 import net.fmjaeschke.quantumhealth.application.ports.out.PrescriptionRepository;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentId;
+import net.fmjaeschke.quantumhealth.domain.model.EncounterId;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.domain.model.PrescriptionId;
@@ -21,12 +23,14 @@ public class QuarkusAccessPolicy implements AccessPolicy {
     private final SecurityIdentity identity;
     private final AppointmentRepository appointments;
     private final PrescriptionRepository prescriptions;
+    private final EncounterRepository encounters;
 
     public QuarkusAccessPolicy(SecurityIdentity identity, AppointmentRepository appointments,
-                               PrescriptionRepository prescriptions) {
+                               PrescriptionRepository prescriptions, EncounterRepository encounters) {
         this.identity = identity;
         this.appointments = appointments;
         this.prescriptions = prescriptions;
+        this.encounters = encounters;
     }
 
     @Override
@@ -34,6 +38,8 @@ public class QuarkusAccessPolicy implements AccessPolicy {
         return switch (permission) {
             case CONFIRM_APPOINTMENT, CHECK_IN_PATIENT -> isClerk() || isAdmin();
             case START_ENCOUNTER      -> isDoctor();
+            case WRITE_ENCOUNTER      -> isDoctor();
+            case COMPLETE_ENCOUNTER   -> isDoctor();
             case CANCEL_APPOINTMENT   -> isClerk() || isDoctor() || isAdmin();
             case CANCEL_PRESCRIPTION  -> isDoctor() || isAdmin();
             case DISPENSE_MEDICATION  -> isPharmacist();
@@ -49,12 +55,14 @@ public class QuarkusAccessPolicy implements AccessPolicy {
             case CANCEL_PRESCRIPTION -> { checkTyped(resource, PrescriptionId.class, id -> checkCancelPrescription(actor, id)); yield null; }
             case CANCEL_APPOINTMENT -> { checkTyped(resource, AppointmentId.class,  id -> checkDoctorOwnsAppointment(actor, id, "cancel appointment")); yield null; }
             case START_ENCOUNTER    -> { checkTyped(resource, AppointmentId.class,  id -> checkStartEncounter(actor, id));   yield null; }
+            case WRITE_ENCOUNTER    -> { checkTyped(resource, EncounterId.class,    id -> checkWriteEncounter(actor, id));   yield null; }
+            case COMPLETE_ENCOUNTER -> { checkTyped(resource, EncounterId.class,    id -> checkCompleteEncounter(actor, id)); yield null; }
             // role check via @RolesAllowed is the sole gate; any pharmacist may fulfill any prescription
             case DISPENSE_MEDICATION -> null;
             // role check via @RolesAllowed is the sole gate; isAllowed() only ever permits
             // CLERK/ADMIN for these two, so there is no DOCTOR branch to scope
             case CONFIRM_APPOINTMENT, CHECK_IN_PATIENT -> null;
-            case REGISTER_PATIENT, SCHEDULE_APPOINTMENT, WRITE_ENCOUNTER,
+            case REGISTER_PATIENT, SCHEDULE_APPOINTMENT,
                  READ_ENCOUNTER, PROCESS_BILLING ->
                     throw new IllegalStateException("check() is not yet wired for permission " + permission);
         };
@@ -99,6 +107,20 @@ public class QuarkusAccessPolicy implements AccessPolicy {
         // always be the appointment's assigned doctor; there is no blanket-access role.
         appointments.findById(appointmentId)
                 .ifPresent(a -> denyIfNotOwner(a.getDoctorId(), actor, "start encounter " + appointmentId.value()));
+    }
+
+    private void checkWriteEncounter(UserId actor, EncounterId encounterId) {
+        // isAllowed() only ever permits DOCTOR for this permission, so the actor must
+        // always be the encounter's assigned doctor; there is no blanket-access role.
+        encounters.findById(encounterId)
+                .ifPresent(e -> denyIfNotOwner(e.getDoctorId(), actor, "write encounter note " + encounterId.value()));
+    }
+
+    private void checkCompleteEncounter(UserId actor, EncounterId encounterId) {
+        // isAllowed() only ever permits DOCTOR for this permission, so the actor must
+        // always be the encounter's assigned doctor; there is no blanket-access role.
+        encounters.findById(encounterId)
+                .ifPresent(e -> denyIfNotOwner(e.getDoctorId(), actor, "complete encounter " + encounterId.value()));
     }
 
     @Override

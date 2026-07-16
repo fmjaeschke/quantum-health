@@ -1,0 +1,25 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0015-create-insurance-policy
+      author: quantum
+      changes:
+        - createTable:
+            tableName: qh_insurance_policy
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: patient_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: tier
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false

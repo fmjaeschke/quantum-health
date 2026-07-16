@@ -9,6 +9,7 @@ import net.fmjaeschke.quantumhealth.application.exception.PatientNotFoundExcepti
 import net.fmjaeschke.quantumhealth.application.ports.out.AccessPolicy;
 import net.fmjaeschke.quantumhealth.application.ports.out.AppointmentRepository;
 import net.fmjaeschke.quantumhealth.application.ports.out.DoctorPort;
+import net.fmjaeschke.quantumhealth.application.ports.out.EncounterRepository;
 import net.fmjaeschke.quantumhealth.application.ports.out.PatientRepository;
 import net.fmjaeschke.quantumhealth.domain.model.Appointment;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentId;
@@ -16,6 +17,7 @@ import net.fmjaeschke.quantumhealth.domain.model.AppointmentPage;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentQuery;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentStatus;
 import net.fmjaeschke.quantumhealth.domain.model.Doctor;
+import net.fmjaeschke.quantumhealth.domain.model.Encounter;
 import net.fmjaeschke.quantumhealth.domain.model.Patient;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.PatientPage;
@@ -55,7 +57,11 @@ class AppointmentServiceTest {
     }
 
     private static AppointmentService service(FakeRepo repo, FakeAccessPolicy policy) {
-        return new AppointmentService(repo, new FakePatientRepo(ALICE), new FakeDoctorPort(DR_SMITH), policy);
+        return service(repo, policy, new FakeEncounterRepo());
+    }
+
+    private static AppointmentService service(FakeRepo repo, FakeAccessPolicy policy, FakeEncounterRepo encounters) {
+        return new AppointmentService(repo, new FakePatientRepo(ALICE), new FakeDoctorPort(DR_SMITH), policy, encounters);
     }
 
     @Test
@@ -74,7 +80,7 @@ class AppointmentServiceTest {
 
     @Test
     void schedule_throws_PatientNotFoundException_when_patient_not_found() {
-        var service = new AppointmentService(new FakeRepo(), new FakePatientRepo(), new FakeDoctorPort(DR_SMITH), new FakeAccessPolicy(false));
+        var service = new AppointmentService(new FakeRepo(), new FakePatientRepo(), new FakeDoctorPort(DR_SMITH), new FakeAccessPolicy(false), new FakeEncounterRepo());
 
         assertThatThrownBy(() -> service.schedule(ACTOR, PATIENT, DOCTOR_ID, TOMORROW, REASON))
                 .isInstanceOf(PatientNotFoundException.class);
@@ -82,7 +88,7 @@ class AppointmentServiceTest {
 
     @Test
     void schedule_throws_DoctorNotFoundException_when_doctor_not_found() {
-        var service = new AppointmentService(new FakeRepo(), new FakePatientRepo(ALICE), new FakeDoctorPort(), new FakeAccessPolicy(false));
+        var service = new AppointmentService(new FakeRepo(), new FakePatientRepo(ALICE), new FakeDoctorPort(), new FakeAccessPolicy(false), new FakeEncounterRepo());
 
         assertThatThrownBy(() -> service.schedule(ACTOR, PATIENT, DOCTOR_ID, TOMORROW, REASON))
                 .isInstanceOf(DoctorNotFoundException.class);
@@ -241,6 +247,20 @@ class AppointmentServiceTest {
     }
 
     @Test
+    void start_creates_encounter_linked_to_appointment() {
+        var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON).confirm();
+        var encounters = new FakeEncounterRepo();
+        var service = service(new FakeRepo(appointment), new FakeAccessPolicy(false), encounters);
+
+        service.start(appointment.getId(), ACTOR);
+
+        assertThat(encounters.saved).hasSize(1);
+        assertThat(encounters.saved.getFirst().getAppointmentId()).isEqualTo(appointment.getId());
+        assertThat(encounters.saved.getFirst().getDoctorId()).isEqualTo(DOCTOR_ID);
+        assertThat(encounters.saved.getFirst().getPatientId()).isEqualTo(PATIENT);
+    }
+
+    @Test
     void start_denies_non_assigned_doctor() {
         var appointment = Appointment.schedule(PATIENT, "Alice Smith", DOCTOR_ID, "Dr. Smith", TOMORROW, REASON).confirm();
         var policy = new FakeAccessPolicy(true, true);
@@ -367,6 +387,33 @@ class AppointmentServiceTest {
         @Override
         public Set<PatientId> getPatientIdsByDoctor(UserId d) {
             return Set.of();
+        }
+    }
+
+    static class FakeEncounterRepo implements EncounterRepository {
+        final List<Encounter> saved = new ArrayList<>();
+
+        @Override
+        public Encounter saveNew(Encounter encounter) {
+            saved.add(encounter);
+            return encounter;
+        }
+
+        @Override
+        public Encounter save(Encounter encounter) {
+            saved.removeIf(e -> e.getId().equals(encounter.getId()));
+            saved.add(encounter);
+            return encounter;
+        }
+
+        @Override
+        public Optional<Encounter> findById(net.fmjaeschke.quantumhealth.domain.model.EncounterId id) {
+            return saved.stream().filter(e -> e.getId().equals(id)).findFirst();
+        }
+
+        @Override
+        public Optional<Encounter> findByAppointmentId(AppointmentId appointmentId) {
+            return saved.stream().filter(e -> e.getAppointmentId().equals(appointmentId)).findFirst();
         }
     }
 

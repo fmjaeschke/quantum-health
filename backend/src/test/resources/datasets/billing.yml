@@ -1,0 +1,37 @@
+qh_patient:
+  - id: "11111111-0000-0000-0000-000000000001"
+    first_name: "Gold"
+    last_name: "Patient"
+    date_of_birth: "1990-01-01"
+  - id: "11111111-0000-0000-0000-000000000002"
+    first_name: "Silver"
+    last_name: "Patient"
+    date_of_birth: "1990-01-01"
+  - id: "11111111-0000-0000-0000-000000000003"
+    first_name: "Bronze"
+    last_name: "Patient"
+    date_of_birth: "1990-01-01"
+  - id: "11111111-0000-0000-0000-000000000004"
+    first_name: "Uninsured"
+    last_name: "Patient"
+    date_of_birth: "1990-01-01"
+
+qh_insurance_policy:
+  - id: "22222222-0000-0000-0000-000000000001"
+    patient_id: "11111111-0000-0000-0000-000000000001"
+    tier: "GOLD"
+  - id: "22222222-0000-0000-0000-000000000002"
+    patient_id: "11111111-0000-0000-0000-000000000002"
+    tier: "SILVER"
+  - id: "22222222-0000-0000-0000-000000000003"
+    patient_id: "11111111-0000-0000-0000-000000000003"
+    tier: "BRONZE"
+
+# Listed after qh_patient/qh_insurance_policy, in FK-child-last order, so CLEAN_INSERT's
+# delete pass (which runs in reverse of this list) removes these child rows before the
+# patient/policy rows they reference — avoiding FK violations against qh_appointment/
+# qh_encounter/qh_encounter_note/qh_invoice rows left behind by a previous test method.
+qh_appointment: []
+qh_encounter: []
+qh_invoice: []
+qh_encounter_note: []

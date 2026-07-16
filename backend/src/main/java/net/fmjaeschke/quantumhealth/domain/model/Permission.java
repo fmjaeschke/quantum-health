@@ -14,6 +14,7 @@ public enum Permission {
     START_ENCOUNTER,
     WRITE_ENCOUNTER,
     READ_ENCOUNTER,
+    COMPLETE_ENCOUNTER,
 
     // Prescription
     CANCEL_PRESCRIPTION,

@@ -1,0 +1,51 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0013-create-encounter-notes
+      author: quantum
+      changes:
+        - createTable:
+            tableName: qh_encounter_note
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: encounter_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_encounter_note_encounter
+                    references: qh_encounter(id)
+              - column:
+                  name: version
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: content
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: author_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: qh_encounter_note
+            columnNames: encounter_id, version
+            constraintName: uq_encounter_note_encounter_version
+        - createIndex:
+            indexName: idx_encounter_note_encounter_id
+            tableName: qh_encounter_note
+            columns:
+              - column:
+                  name: encounter_id

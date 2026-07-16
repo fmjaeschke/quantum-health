@@ -159,6 +159,29 @@ class AppointmentTest {
     }
 
     @Test
+    void complete_transitions_from_in_progress_to_completed() {
+        var inProgress = Appointment.schedule(PATIENT_ID, "Alice Smith", DOCTOR, "Dr. Smith", TOMORROW, REASON)
+                .confirm().start();
+        assertThat(inProgress.complete().getStatus()).isEqualTo(AppointmentStatus.COMPLETED);
+    }
+
+    @Test
+    void complete_throws_when_not_in_progress() {
+        var confirmed = Appointment.schedule(PATIENT_ID, "Alice Smith", DOCTOR, "Dr. Smith", TOMORROW, REASON)
+                .confirm();
+        assertThatThrownBy(confirmed::complete).isInstanceOf(InvalidAppointmentStateException.class);
+    }
+
+    @Test
+    void isCompletable_true_only_for_in_progress() {
+        var confirmed = Appointment.schedule(PATIENT_ID, "Alice Smith", DOCTOR, "Dr. Smith", TOMORROW, REASON)
+                .confirm();
+        var inProgress = confirmed.start();
+        assertThat(confirmed.isCompletable()).isFalse();
+        assertThat(inProgress.isCompletable()).isTrue();
+    }
+
+    @Test
     void reconstitute_restores_all_fields_including_reason() {
         var id = AppointmentId.generate();
         var a = Appointment.reconstitute(id, PATIENT_ID, "Alice Smith", DOCTOR, "Dr. Smith",

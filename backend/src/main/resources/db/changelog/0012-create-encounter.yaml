@@ -1,0 +1,47 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0012-create-encounter
+      author: quantum
+      changes:
+        - createTable:
+            tableName: qh_encounter
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: appointment_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: doctor_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: patient_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: completed_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: true
+        - createIndex:
+            indexName: idx_encounter_doctor_id
+            tableName: qh_encounter
+            columns:
+              - column:
+                  name: doctor_id
+        - createIndex:
+            indexName: idx_encounter_patient_id
+            tableName: qh_encounter
+            columns:
+              - column:
+                  name: patient_id

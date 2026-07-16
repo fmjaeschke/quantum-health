@@ -16,12 +16,14 @@ import net.fmjaeschke.quantumhealth.application.ports.in.StartEncounterUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.out.AccessPolicy;
 import net.fmjaeschke.quantumhealth.application.ports.out.AppointmentRepository;
 import net.fmjaeschke.quantumhealth.application.ports.out.DoctorPort;
+import net.fmjaeschke.quantumhealth.application.ports.out.EncounterRepository;
 import net.fmjaeschke.quantumhealth.application.ports.out.PatientRepository;
 import net.fmjaeschke.quantumhealth.domain.model.Appointment;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentId;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentPage;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentQuery;
 import net.fmjaeschke.quantumhealth.domain.model.Doctor;
+import net.fmjaeschke.quantumhealth.domain.model.Encounter;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
@@ -41,15 +43,18 @@ public class AppointmentService implements
     private final PatientRepository patientRepository;
     private final DoctorPort doctorPort;
     private final AccessPolicy accessPolicy;
+    private final EncounterRepository encounterRepository;
 
     public AppointmentService(AppointmentRepository repository,
                               PatientRepository patientRepository,
                               DoctorPort doctorPort,
-                              AccessPolicy accessPolicy) {
+                              AccessPolicy accessPolicy,
+                              EncounterRepository encounterRepository) {
         this.repository = repository;
         this.patientRepository = patientRepository;
         this.doctorPort = doctorPort;
         this.accessPolicy = accessPolicy;
+        this.encounterRepository = encounterRepository;
     }
 
     @Override
@@ -115,6 +120,8 @@ public class AppointmentService implements
         accessPolicy.check(Permission.START_ENCOUNTER, actor, id);
         var appointment = repository.findById(id)
                 .orElseThrow(() -> new AppointmentNotFoundException(id));
-        return repository.save(appointment.start());
+        var started = repository.save(appointment.start());
+        encounterRepository.saveNew(Encounter.create(started.getId(), started.getDoctorId(), started.getPatientId()));
+        return started;
     }
 }

@@ -6,6 +6,7 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.ws.rs.core.UriInfo;
 import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.application.ports.out.AccessPolicy;
+import net.fmjaeschke.quantumhealth.application.ports.out.EncounterRepository;
 import net.fmjaeschke.quantumhealth.domain.model.Appointment;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentPage;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
@@ -21,9 +22,11 @@ import java.util.LinkedHashMap;
 public class AppointmentAssembler {
 
     private final AccessPolicy accessPolicy;
+    private final EncounterRepository encounterRepository;
 
-    public AppointmentAssembler(AccessPolicy accessPolicy) {
+    public AppointmentAssembler(AccessPolicy accessPolicy, EncounterRepository encounterRepository) {
         this.accessPolicy = accessPolicy;
+        this.encounterRepository = encounterRepository;
     }
 
     public HalEntityWrapper<AppointmentResponse> toHal(Appointment appointment, UserId actor, UriInfo uriInfo) {
@@ -50,6 +53,16 @@ public class AppointmentAssembler {
                 && accessPolicy.mayAccessOwnedBy(appointment.getDoctorId(), actor)) {
             links.put("cancel", new HalLink(selfUri + "/cancel", null, null));
         }
+        encounterRepository.findByAppointmentId(appointment.getId())
+                .filter(encounter -> encounter.getCompletedAt().isEmpty())
+                .ifPresent(encounter -> {
+                    var encounterUri = uriInfo.getBaseUriBuilder()
+                            .path("encounters")
+                            .path(encounter.getId().value().toString())
+                            .build()
+                            .toString();
+                    links.put("medical-encounter", new HalLink(encounterUri, null, null));
+                });
 
         return new HalEntityWrapper<>(response, links);
     }

@@ -73,6 +73,13 @@ public final class Appointment {
         return new Appointment(id, patientId, patientName, doctorId, doctorName, scheduledAt, reason, AppointmentStatus.IN_PROGRESS);
     }
 
+    public Appointment complete() {
+        if (!isCompletable()) {
+            throw new InvalidAppointmentStateException("complete", status);
+        }
+        return new Appointment(id, patientId, patientName, doctorId, doctorName, scheduledAt, reason, AppointmentStatus.COMPLETED);
+    }
+
     public boolean isConfirmable() {
         return status == AppointmentStatus.PENDING;
     }
@@ -90,6 +97,10 @@ public final class Appointment {
 
     public boolean isStartable() {
         return status == AppointmentStatus.CONFIRMED || status == AppointmentStatus.ARRIVED;
+    }
+
+    public boolean isCompletable() {
+        return status == AppointmentStatus.IN_PROGRESS;
     }
 
     public AppointmentId getId() { return id; }

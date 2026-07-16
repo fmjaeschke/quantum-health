@@ -1,0 +1,64 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0014-create-invoice
+      author: quantum
+      changes:
+        - createTable:
+            tableName: qh_invoice
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: encounter_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    unique: true
+                    foreignKeyName: fk_invoice_encounter
+                    references: qh_encounter(id)
+              - column:
+                  name: patient_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: total_amount
+                  type: NUMERIC(10,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: insurer_amount
+                  type: NUMERIC(10,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: patient_copay
+                  type: NUMERIC(10,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: patient_paid_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: true
+        - createIndex:
+            indexName: idx_invoice_patient_id
+            tableName: qh_invoice
+            columns:
+              - column:
+                  name: patient_id
+        - createIndex:
+            indexName: idx_invoice_status
+            tableName: qh_invoice
+            columns:
+              - column:
+                  name: status

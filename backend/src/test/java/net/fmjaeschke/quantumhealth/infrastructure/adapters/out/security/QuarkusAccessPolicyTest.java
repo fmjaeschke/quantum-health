@@ -8,11 +8,14 @@ import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.application.exception.AccessDeniedException;
 import net.fmjaeschke.quantumhealth.application.ports.out.AccessPolicy;
 import net.fmjaeschke.quantumhealth.application.ports.out.AppointmentRepository;
+import net.fmjaeschke.quantumhealth.application.ports.out.EncounterRepository;
 import net.fmjaeschke.quantumhealth.application.ports.out.PrescriptionRepository;
 import net.fmjaeschke.quantumhealth.domain.model.Appointment;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentId;
 import net.fmjaeschke.quantumhealth.domain.model.AppointmentStatus;
 import net.fmjaeschke.quantumhealth.domain.model.Disposition;
+import net.fmjaeschke.quantumhealth.domain.model.Encounter;
+import net.fmjaeschke.quantumhealth.domain.model.EncounterId;
 import net.fmjaeschke.quantumhealth.domain.model.MedicationItem;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.Prescription;
@@ -45,9 +48,12 @@ class QuarkusAccessPolicyTest {
     @InjectMock
     AppointmentRepository appointmentRepository;
 
+    @InjectMock
+    EncounterRepository encounterRepository;
+
     @ParameterizedTest
     @EnumSource(value = Permission.class, names = {
-            "REGISTER_PATIENT", "SCHEDULE_APPOINTMENT", "WRITE_ENCOUNTER",
+            "REGISTER_PATIENT", "SCHEDULE_APPOINTMENT",
             "READ_ENCOUNTER", "PROCESS_BILLING"
     })
     @TestSecurity(user = "clerk-1", roles = {"CLERK"})
@@ -298,6 +304,52 @@ class QuarkusAccessPolicyTest {
 
         assertThatThrownBy(
                 () -> accessPolicy.check(Permission.START_ENCOUNTER, UserId.of("doctor-1"), apptId))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @TestSecurity(user = "doctor-1", roles = {"DOCTOR"})
+    void doctor_can_write_note_on_own_encounter() {
+        var encounterId = EncounterId.generate();
+        var encounter = Encounter.create(AppointmentId.generate(), UserId.of("doctor-1"), PatientId.generate());
+        when(encounterRepository.findById(encounterId)).thenReturn(Optional.of(encounter));
+
+        assertThatNoException().isThrownBy(
+                () -> accessPolicy.check(Permission.WRITE_ENCOUNTER, UserId.of("doctor-1"), encounterId));
+    }
+
+    @Test
+    @TestSecurity(user = "doctor-1", roles = {"DOCTOR"})
+    void doctor_cannot_write_note_on_colleague_encounter() {
+        var encounterId = EncounterId.generate();
+        var encounter = Encounter.create(AppointmentId.generate(), UserId.of("doctor-2"), PatientId.generate());
+        when(encounterRepository.findById(encounterId)).thenReturn(Optional.of(encounter));
+
+        assertThatThrownBy(
+                () -> accessPolicy.check(Permission.WRITE_ENCOUNTER, UserId.of("doctor-1"), encounterId))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @TestSecurity(user = "doctor-1", roles = {"DOCTOR"})
+    void doctor_can_complete_own_encounter() {
+        var encounterId = EncounterId.generate();
+        var encounter = Encounter.create(AppointmentId.generate(), UserId.of("doctor-1"), PatientId.generate());
+        when(encounterRepository.findById(encounterId)).thenReturn(Optional.of(encounter));
+
+        assertThatNoException().isThrownBy(
+                () -> accessPolicy.check(Permission.COMPLETE_ENCOUNTER, UserId.of("doctor-1"), encounterId));
+    }
+
+    @Test
+    @TestSecurity(user = "doctor-1", roles = {"DOCTOR"})
+    void doctor_cannot_complete_colleague_encounter() {
+        var encounterId = EncounterId.generate();
+        var encounter = Encounter.create(AppointmentId.generate(), UserId.of("doctor-2"), PatientId.generate());
+        when(encounterRepository.findById(encounterId)).thenReturn(Optional.of(encounter));
+
+        assertThatThrownBy(
+                () -> accessPolicy.check(Permission.COMPLETE_ENCOUNTER, UserId.of("doctor-1"), encounterId))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
