@@ -103,6 +103,8 @@ public class PrescriptionService implements IssuePrescriptionUseCase, ReadPrescr
                 repository.expireOne(prescription);
                 expiredCount++;
             } catch (ConcurrentModificationException _) {
+                // Unlike fulfill()/cancel(), this is a best-effort batch job: skip and retry
+                // next run rather than letting the conflict abort the whole expiry pass.
                 LOG.warnf("Skipping prescription %s during expiry: concurrently modified",
                         prescription.getId().value());
             }

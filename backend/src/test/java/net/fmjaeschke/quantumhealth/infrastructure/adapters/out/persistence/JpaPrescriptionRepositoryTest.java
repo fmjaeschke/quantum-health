@@ -15,6 +15,7 @@ import net.fmjaeschke.quantumhealth.domain.model.Prescription;
 import net.fmjaeschke.quantumhealth.domain.model.PrescriptionId;
 import net.fmjaeschke.quantumhealth.domain.model.PrescriptionStatus;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
+import org.hibernate.StaleStateException;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -180,7 +181,8 @@ class JpaPrescriptionRepositoryTest {
 
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() ->
                 repository.save(snapshot2.cancel(UserId.of("doctor-1"), "stale update"))))
-                .isInstanceOf(ConcurrentModificationException.class);
+                .isInstanceOf(ConcurrentModificationException.class)
+                .hasCauseInstanceOf(StaleStateException.class);
     }
 
     @Test

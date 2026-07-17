@@ -42,7 +42,7 @@ public class JpaPrescriptionRepository implements PrescriptionRepository {
             // OptimisticLockingFailureException; translate to the application-level exception so
             // callers (PrescriptionService, ConcurrentModificationExceptionMapper) stay free of
             // JPA/Jakarta Data types.
-            throw new ConcurrentModificationException(e.getMessage());
+            throw new ConcurrentModificationException(e.getMessage(), e.getCause());
         }
     }
 
