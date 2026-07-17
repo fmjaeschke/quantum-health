@@ -25,8 +25,10 @@ import net.fmjaeschke.quantumhealth.domain.model.ResourceId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -46,6 +48,8 @@ class PrescriptionServiceTest {
 
     static final Patient ALICE = Patient.reconstitute(PATIENT_ID, "Alice", "Smith", LocalDate.of(1990, 1, 1));
     static final Doctor DR_SMITH = new Doctor(ACTOR, "Dr. Smith");
+    static final Instant FIXED_NOW = Instant.parse("2026-01-15T12:00:00Z");
+    static final Clock FIXED_CLOCK = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
 
     private static PrescriptionService service(FakePrescriptionRepo repo, boolean isDoctor) {
         return service(repo, isDoctor, false);
@@ -56,7 +60,8 @@ class PrescriptionServiceTest {
     }
 
     private static PrescriptionService service(FakePrescriptionRepo repo, FakeAccessPolicy policy) {
-        return new PrescriptionService(repo, new FakePatientRepo(ALICE), new FakeDoctorPort(DR_SMITH), policy);
+        return new PrescriptionService(repo, new FakePatientRepo(ALICE), new FakeDoctorPort(DR_SMITH), policy,
+                FIXED_CLOCK);
     }
 
     // --- issue() ---
@@ -73,8 +78,16 @@ class PrescriptionServiceTest {
     }
 
     @Test
+    void issue_records_the_clocks_current_instant_as_issuedAt() {
+        var repo = new FakePrescriptionRepo();
+        var result = service(repo, false).issue(ACTOR, PATIENT_ID, MEDICATIONS);
+
+        assertThat(result.getIssuedAt()).isEqualTo(FIXED_NOW);
+    }
+
+    @Test
     void issue_throws_PatientNotFoundException_when_patient_not_found() {
-        var service = new PrescriptionService(new FakePrescriptionRepo(), new FakePatientRepo(), new FakeDoctorPort(DR_SMITH), new FakeAccessPolicy(false));
+        var service = new PrescriptionService(new FakePrescriptionRepo(), new FakePatientRepo(), new FakeDoctorPort(DR_SMITH), new FakeAccessPolicy(false), FIXED_CLOCK);
 
         assertThatThrownBy(() -> service.issue(ACTOR, PATIENT_ID, MEDICATIONS))
                 .isInstanceOf(PatientNotFoundException.class);
@@ -82,7 +95,7 @@ class PrescriptionServiceTest {
 
     @Test
     void issue_throws_DoctorNotFoundException_when_doctor_not_found() {
-        var service = new PrescriptionService(new FakePrescriptionRepo(), new FakePatientRepo(ALICE), new FakeDoctorPort(), new FakeAccessPolicy(false));
+        var service = new PrescriptionService(new FakePrescriptionRepo(), new FakePatientRepo(ALICE), new FakeDoctorPort(), new FakeAccessPolicy(false), FIXED_CLOCK);
 
         assertThatThrownBy(() -> service.issue(ACTOR, PATIENT_ID, MEDICATIONS))
                 .isInstanceOf(DoctorNotFoundException.class);
@@ -92,7 +105,7 @@ class PrescriptionServiceTest {
 
     @Test
     void findById_returns_prescription_when_doctor_is_owner() {
-        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS);
+        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS, Instant.now());
         var result = service(new FakePrescriptionRepo(prescription), true).findById(prescription.getId(), ACTOR);
 
         assertThat(result.getId()).isEqualTo(prescription.getId());
@@ -100,7 +113,7 @@ class PrescriptionServiceTest {
 
     @Test
     void findById_throws_PrescriptionNotFoundException_when_doctor_is_not_owner() {
-        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", UserId.of("dr-other"), "Dr. Other", MEDICATIONS);
+        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", UserId.of("dr-other"), "Dr. Other", MEDICATIONS, Instant.now());
         var repo = new FakePrescriptionRepo(prescription);
 
         assertThatThrownBy(() -> service(repo, true).findById(prescription.getId(), ACTOR))
@@ -109,7 +122,7 @@ class PrescriptionServiceTest {
 
     @Test
     void findById_returns_prescription_for_non_doctor_regardless_of_owner() {
-        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", UserId.of("dr-other"), "Dr. Other", MEDICATIONS);
+        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", UserId.of("dr-other"), "Dr. Other", MEDICATIONS, Instant.now());
         var result = service(new FakePrescriptionRepo(prescription), false).findById(prescription.getId(), ACTOR);
 
         assertThat(result.getId()).isEqualTo(prescription.getId());
@@ -127,11 +140,19 @@ class PrescriptionServiceTest {
 
     @Test
     void fulfill_returns_fulfilled_prescription() {
-        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS);
+        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS, Instant.now());
         var result = service(new FakePrescriptionRepo(prescription), false).fulfill(prescription.getId(), ACTOR);
 
         assertThat(result.getStatus()).isEqualTo(PrescriptionStatus.FULFILLED);
         assertThat(result.getFulfilledBy()).isEqualTo(ACTOR);
+    }
+
+    @Test
+    void fulfill_records_the_clocks_current_instant_as_fulfilledAt() {
+        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS, Instant.now());
+        var result = service(new FakePrescriptionRepo(prescription), false).fulfill(prescription.getId(), ACTOR);
+
+        assertThat(result.getFulfilledAt()).isEqualTo(FIXED_NOW);
     }
 
     @Test
@@ -144,7 +165,7 @@ class PrescriptionServiceTest {
 
     @Test
     void fulfill_denies_when_access_policy_denies() {
-        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS);
+        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS, Instant.now());
         var policy = new FakeAccessPolicy(false, true);
         var service = service(new FakePrescriptionRepo(prescription), policy);
 
@@ -157,12 +178,20 @@ class PrescriptionServiceTest {
 
     @Test
     void cancel_returns_cancelled_prescription_with_reason() {
-        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS);
+        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS, Instant.now());
         var result = service(new FakePrescriptionRepo(prescription), false).cancel(prescription.getId(), ACTOR, CANCEL_REASON);
 
         assertThat(result.getStatus()).isEqualTo(PrescriptionStatus.CANCELLED);
         assertThat(result.getCancelledBy()).isEqualTo(ACTOR);
         assertThat(result.getCancelledReason()).isEqualTo(CANCEL_REASON);
+    }
+
+    @Test
+    void cancel_records_the_clocks_current_instant_as_cancelledAt() {
+        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS, Instant.now());
+        var result = service(new FakePrescriptionRepo(prescription), false).cancel(prescription.getId(), ACTOR, CANCEL_REASON);
+
+        assertThat(result.getCancelledAt()).isEqualTo(FIXED_NOW);
     }
 
     @Test
@@ -175,7 +204,7 @@ class PrescriptionServiceTest {
 
     @Test
     void cancel_denies_when_access_policy_denies() {
-        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS);
+        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS, Instant.now());
         var policy = new FakeAccessPolicy(false, true);
         var service = service(new FakePrescriptionRepo(prescription), policy);
 
@@ -188,7 +217,7 @@ class PrescriptionServiceTest {
 
     @Test
     void list_for_doctor_passes_actor_as_scope_to_repository() {
-        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS);
+        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS, Instant.now());
         var repo = new FakePrescriptionRepo(prescription);
         service(repo, true).list(0, 20, ACTOR);
 
@@ -197,7 +226,7 @@ class PrescriptionServiceTest {
 
     @Test
     void list_for_non_doctor_passes_empty_scope_to_repository() {
-        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS);
+        var prescription = Prescription.issue(PATIENT_ID, "Alice Smith", ACTOR, "Dr. Smith", MEDICATIONS, Instant.now());
         var repo = new FakePrescriptionRepo(prescription);
         service(repo, false).list(0, 20, ACTOR);
 
@@ -229,6 +258,17 @@ class PrescriptionServiceTest {
         assertThat(count).isEqualTo(2);
         assertThat(repo.findById(rxA.getId()).orElseThrow().getStatus()).isEqualTo(PrescriptionStatus.EXPIRED);
         assertThat(repo.findById(rxB.getId()).orElseThrow().getStatus()).isEqualTo(PrescriptionStatus.EXPIRED);
+    }
+
+    @Test
+    void expireOlderThan_records_the_clocks_current_instant_as_expiredAt() {
+        var rxA = staleIssuedPrescription();
+        var repo = new FakePrescriptionRepo(rxA);
+        repo.staleForExpiry = List.of(rxA);
+
+        service(repo, false).expireOlderThan(Instant.now());
+
+        assertThat(repo.findById(rxA.getId()).orElseThrow().getExpiredAt()).isEqualTo(FIXED_NOW);
     }
 
     @Test
@@ -291,11 +331,11 @@ class PrescriptionServiceTest {
         }
 
         @Override
-        public void expireOne(Prescription prescription) {
+        public void expireOne(Prescription prescription, Instant expiredAt) {
             if (conflictOnExpire.contains(prescription.getId())) {
                 throw new ConcurrentModificationException("stale version for " + prescription.getId().value());
             }
-            save(prescription.expire());
+            save(prescription.expire(expiredAt));
         }
     }
 

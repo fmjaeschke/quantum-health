@@ -26,5 +26,5 @@ public interface PrescriptionRepository {
      * @throws ConcurrentModificationException if {@code prescription} was modified since it was read,
      *                                          detected via optimistic locking
      */
-    void expireOne(Prescription prescription);
+    void expireOne(Prescription prescription, Instant expiredAt);
 }

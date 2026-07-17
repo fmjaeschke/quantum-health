@@ -52,7 +52,7 @@ class JpaPrescriptionRepositoryTest {
         return Prescription.issue(
                 PatientId.of(ALICE_UUID), "Alice Smith",
                 UserId.of("doctor-1"), "Dr. One",
-                ITEMS);
+                ITEMS, Instant.now());
     }
 
     @Test
@@ -116,7 +116,7 @@ class JpaPrescriptionRepositoryTest {
     @Transactional
     void save_after_fulfill_persists_fulfilled_status_and_audit_fields() {
         var rx = repository.findById(RX_001).orElseThrow();
-        var fulfilled = rx.fulfill(UserId.of("pharmacist-1"));
+        var fulfilled = rx.fulfill(UserId.of("pharmacist-1"), Instant.now());
 
         var updated = repository.save(fulfilled);
 
@@ -131,7 +131,7 @@ class JpaPrescriptionRepositoryTest {
     @Transactional
     void save_after_cancel_persists_cancelled_status_and_audit_fields() {
         var rx = repository.findById(RX_001).orElseThrow();
-        var cancelled = rx.cancel(UserId.of("doctor-1"), "Prescribing error");
+        var cancelled = rx.cancel(UserId.of("doctor-1"), "Prescribing error", Instant.now());
 
         var updated = repository.save(cancelled);
 
@@ -150,7 +150,7 @@ class JpaPrescriptionRepositoryTest {
         var stale = QuarkusTransaction.requiringNew().call(() -> repository.findStale(threshold));
         assertThat(stale).extracting(p -> p.getId().value()).containsExactly(RX_001.value());
 
-        repository.expireOne(stale.getFirst());
+        repository.expireOne(stale.getFirst(), Instant.now());
 
         var expired = QuarkusTransaction.requiringNew().call(() -> repository.findById(RX_001).orElseThrow());
         assertThat(expired.getStatus()).isEqualTo(PrescriptionStatus.EXPIRED);
@@ -177,10 +177,10 @@ class JpaPrescriptionRepositoryTest {
         var snapshot2 = QuarkusTransaction.requiringNew().call(() -> repository.findById(RX_001).orElseThrow());
 
         QuarkusTransaction.requiringNew().run(() ->
-                repository.save(snapshot1.fulfill(UserId.of("pharmacist-1"))));
+                repository.save(snapshot1.fulfill(UserId.of("pharmacist-1"), Instant.now())));
 
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() ->
-                repository.save(snapshot2.cancel(UserId.of("doctor-1"), "stale update"))))
+                repository.save(snapshot2.cancel(UserId.of("doctor-1"), "stale update", Instant.now()))))
                 .isInstanceOf(ConcurrentModificationException.class)
                 .hasCauseInstanceOf(StaleStateException.class);
     }

@@ -29,16 +29,16 @@ public final class Disposition {
         return new Disposition(PrescriptionStatus.ISSUED, null, null, null, null, null, null);
     }
 
-    public static Disposition fulfilled(UserId actor) {
-        return new Disposition(PrescriptionStatus.FULFILLED, Instant.now(), actor, null, null, null, null);
+    public static Disposition fulfilled(UserId actor, Instant at) {
+        return new Disposition(PrescriptionStatus.FULFILLED, at, actor, null, null, null, null);
     }
 
-    public static Disposition cancelled(UserId actor, String reason) {
-        return new Disposition(PrescriptionStatus.CANCELLED, null, null, Instant.now(), actor, reason, null);
+    public static Disposition cancelled(UserId actor, String reason, Instant at) {
+        return new Disposition(PrescriptionStatus.CANCELLED, null, null, at, actor, reason, null);
     }
 
-    public static Disposition expired() {
-        return new Disposition(PrescriptionStatus.EXPIRED, null, null, null, null, null, Instant.now());
+    public static Disposition expired(Instant at) {
+        return new Disposition(PrescriptionStatus.EXPIRED, null, null, null, null, null, at);
     }
 
     /** Used by the persistence layer to reconstitute from stored columns. */

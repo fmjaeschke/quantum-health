@@ -34,9 +34,9 @@ public final class Prescription {
 
     public static Prescription issue(PatientId patientId, String patientName,
                                      UserId doctorId, String doctorName,
-                                     List<MedicationItem> medications) {
+                                     List<MedicationItem> medications, Instant issuedAt) {
         return new Prescription(PrescriptionId.generate(), patientId, patientName,
-                doctorId, doctorName, medications, Instant.now(), Disposition.issued(), null);
+                doctorId, doctorName, medications, issuedAt, Disposition.issued(), null);
     }
 
     public static Prescription reconstitute(PrescriptionId id, PatientId patientId, String patientName,
@@ -46,28 +46,28 @@ public final class Prescription {
                 issuedAt, disposition, version);
     }
 
-    public Prescription fulfill(UserId actor) {
+    public Prescription fulfill(UserId actor, Instant at) {
         if (!isFulfillable()) {
             throw new InvalidPrescriptionStateException("fulfill", disposition.status);
         }
         return new Prescription(id, patientId, patientName, doctorId, doctorName, medications,
-                issuedAt, Disposition.fulfilled(actor), version);
+                issuedAt, Disposition.fulfilled(actor, at), version);
     }
 
-    public Prescription cancel(UserId actor, String reason) {
+    public Prescription cancel(UserId actor, String reason, Instant at) {
         if (!isCancellable()) {
             throw new InvalidPrescriptionStateException("cancel", disposition.status);
         }
         return new Prescription(id, patientId, patientName, doctorId, doctorName, medications,
-                issuedAt, Disposition.cancelled(actor, reason), version);
+                issuedAt, Disposition.cancelled(actor, reason, at), version);
     }
 
-    public Prescription expire() {
+    public Prescription expire(Instant at) {
         if (!isExpirable()) {
             throw new InvalidPrescriptionStateException("expire", disposition.status);
         }
         return new Prescription(id, patientId, patientName, doctorId, doctorName, medications,
-                issuedAt, Disposition.expired(), version);
+                issuedAt, Disposition.expired(at), version);
     }
 
     public boolean isFulfillable() { return disposition.status == PrescriptionStatus.ISSUED; }

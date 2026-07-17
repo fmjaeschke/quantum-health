@@ -11,6 +11,8 @@ import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @QuarkusTest
@@ -62,7 +64,7 @@ class JpaEncounterRepositoryTest {
     void save_persists_completedAt() {
         var saved = repository.saveNew(Encounter.create(AppointmentId.generate(), UserId.of("doctor-1"), PatientId.generate()));
 
-        repository.save(saved.complete());
+        repository.save(saved.complete(Instant.now()));
 
         var retrieved = repository.findById(saved.getId());
         assertThat(retrieved).isPresent();

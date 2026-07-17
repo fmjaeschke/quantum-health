@@ -25,6 +25,7 @@ import net.fmjaeschke.quantumhealth.domain.model.PrescriptionPage;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 import org.jboss.logging.Logger;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -41,15 +42,18 @@ public class PrescriptionService implements IssuePrescriptionUseCase, ReadPrescr
     private final PatientRepository patientRepository;
     private final DoctorPort doctorPort;
     private final AccessPolicy accessPolicy;
+    private final Clock clock;
 
     public PrescriptionService(PrescriptionRepository repository,
                                PatientRepository patientRepository,
                                DoctorPort doctorPort,
-                               AccessPolicy accessPolicy) {
+                               AccessPolicy accessPolicy,
+                               Clock clock) {
         this.repository = repository;
         this.patientRepository = patientRepository;
         this.doctorPort = doctorPort;
         this.accessPolicy = accessPolicy;
+        this.clock = clock;
     }
 
     @Override
@@ -59,7 +63,8 @@ public class PrescriptionService implements IssuePrescriptionUseCase, ReadPrescr
         var doctor = doctorPort.findById(actor)
                 .orElseThrow(() -> new DoctorNotFoundException(actor));
         return repository.saveNew(
-                Prescription.issue(patientId, patient.getFullName(), actor, doctor.displayName(), medications));
+                Prescription.issue(patientId, patient.getFullName(), actor, doctor.displayName(), medications,
+                        clock.instant()));
     }
 
     @Override
@@ -77,7 +82,7 @@ public class PrescriptionService implements IssuePrescriptionUseCase, ReadPrescr
         accessPolicy.check(Permission.DISPENSE_MEDICATION, actor, id);
         var prescription = repository.findById(id)
                 .orElseThrow(() -> new PrescriptionNotFoundException(id));
-        return repository.save(prescription.fulfill(actor));
+        return repository.save(prescription.fulfill(actor, clock.instant()));
     }
 
     @Override
@@ -85,7 +90,7 @@ public class PrescriptionService implements IssuePrescriptionUseCase, ReadPrescr
         accessPolicy.check(Permission.CANCEL_PRESCRIPTION, actor, id);
         var prescription = repository.findById(id)
                 .orElseThrow(() -> new PrescriptionNotFoundException(id));
-        return repository.save(prescription.cancel(actor, reason));
+        return repository.save(prescription.cancel(actor, reason, clock.instant()));
     }
 
     @Override
@@ -100,7 +105,7 @@ public class PrescriptionService implements IssuePrescriptionUseCase, ReadPrescr
         int expiredCount = 0;
         for (var prescription : stale) {
             try {
-                repository.expireOne(prescription);
+                repository.expireOne(prescription, clock.instant());
                 expiredCount++;
             } catch (ConcurrentModificationException _) {
                 // Unlike fulfill()/cancel(), this is a best-effort batch job: skip and retry

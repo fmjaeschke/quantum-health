@@ -82,12 +82,12 @@ public final class Invoice {
                 InvoiceStatus.APPEALED, patientPaidAt);
     }
 
-    public Invoice processPatientPayment() {
+    public Invoice processPatientPayment(Instant at) {
         if (!isPatientPaymentProcessable()) {
             throw new InvalidInvoiceStateException("process-patient-payment", status);
         }
         return new Invoice(id, encounterId, patientId, totalAmount, insurerAmount, patientCopay,
-                status, Instant.now());
+                status, at);
     }
 
     public boolean isPayable()     { return status == InvoiceStatus.SUBMITTED; }

@@ -16,6 +16,7 @@ import net.fmjaeschke.quantumhealth.domain.model.UserId;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -99,7 +100,7 @@ class JpaInvoiceRepositoryTest {
     @Transactional
     void save_persists_patientPaidAt() {
         var saved = repository.saveNew(Invoice.draft(persistedEncounterId(), PatientId.generate(), new BigDecimal("150.00")));
-        var paid = saved.processPatientPayment();
+        var paid = saved.processPatientPayment(Instant.now());
 
         repository.save(paid);
         var retrieved = repository.findById(saved.getId());

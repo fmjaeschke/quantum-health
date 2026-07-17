@@ -4,6 +4,7 @@ import net.fmjaeschke.quantumhealth.domain.exception.InvalidInvoiceStateExceptio
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -12,6 +13,7 @@ class InvoiceTest {
 
     private static final EncounterId ENCOUNTER = EncounterId.generate();
     private static final PatientId PATIENT = PatientId.generate();
+    private static final Instant PAID_AT = Instant.parse("2026-01-10T10:00:00Z");
 
     @Test
     void draft_creates_invoice_with_draft_status_and_zeroed_split() {
@@ -188,10 +190,21 @@ class InvoiceTest {
                 .calculateSplit(null)
                 .submit();
 
-        var paid = submitted.processPatientPayment();
+        var paid = submitted.processPatientPayment(PAID_AT);
 
         assertThat(paid.getPatientPaidAt()).isPresent();
         assertThat(paid.getStatus()).isEqualTo(InvoiceStatus.SUBMITTED);
+    }
+
+    @Test
+    void processPatientPayment_records_the_exact_instant_passed_in_as_patientPaidAt() {
+        var submitted = Invoice.draft(ENCOUNTER, PATIENT, new BigDecimal("150.00"))
+                .calculateSplit(null)
+                .submit();
+
+        var paid = submitted.processPatientPayment(PAID_AT);
+
+        assertThat(paid.getPatientPaidAt()).contains(PAID_AT);
     }
 
     @Test
@@ -201,7 +214,7 @@ class InvoiceTest {
                 .submit()
                 .deny();
 
-        var paid = denied.processPatientPayment();
+        var paid = denied.processPatientPayment(PAID_AT);
 
         assertThat(paid.getPatientPaidAt()).isPresent();
         assertThat(paid.getStatus()).isEqualTo(InvoiceStatus.DENIED);
@@ -212,8 +225,8 @@ class InvoiceTest {
         var paid = Invoice.draft(ENCOUNTER, PATIENT, new BigDecimal("150.00"))
                 .calculateSplit(null)
                 .submit()
-                .processPatientPayment();
+                .processPatientPayment(PAID_AT);
 
-        assertThatThrownBy(paid::processPatientPayment).isInstanceOf(InvalidInvoiceStateException.class);
+        assertThatThrownBy(() -> paid.processPatientPayment(PAID_AT)).isInstanceOf(InvalidInvoiceStateException.class);
     }
 }

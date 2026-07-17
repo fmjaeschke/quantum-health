@@ -305,7 +305,7 @@ class PrescriptionResourceTest {
     @TestSecurity(user = "pharmacist-1", roles = {"PHARMACIST"})
     void pharmacist_can_fulfill_issued_prescription() {
         when(fulfillMock.fulfill(eq(PrescriptionId.of(RX_ID)), any()))
-                .thenReturn(ISSUED.fulfill(UserId.of("pharmacist-1")));
+                .thenReturn(ISSUED.fulfill(UserId.of("pharmacist-1"), Instant.now()));
 
         given().when()
                 .post("/prescriptions/" + RX_ID + "/fulfill")
@@ -351,7 +351,7 @@ class PrescriptionResourceTest {
     @TestSecurity(user = "dr-smith", roles = {"DOCTOR"})
     void doctor_can_cancel_own_prescription() {
         when(cancelMock.cancel(eq(PrescriptionId.of(RX_ID)), any(), any()))
-                .thenReturn(ISSUED.cancel(UserId.of("dr-smith"), "Prescribing error"));
+                .thenReturn(ISSUED.cancel(UserId.of("dr-smith"), "Prescribing error", Instant.now()));
 
         given().contentType(ContentType.JSON)
                 .body("""
@@ -381,7 +381,7 @@ class PrescriptionResourceTest {
     @TestSecurity(user = "admin-1", roles = {"ADMIN"})
     void admin_can_cancel_any_prescription() {
         when(cancelMock.cancel(eq(PrescriptionId.of(RX_ID)), any(), any()))
-                .thenReturn(ISSUED.cancel(UserId.of("admin-1"), "Admin correction"));
+                .thenReturn(ISSUED.cancel(UserId.of("admin-1"), "Admin correction", Instant.now()));
 
         given().contentType(ContentType.JSON)
                 .body("""

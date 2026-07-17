@@ -76,7 +76,7 @@ public class JpaPrescriptionRepository implements PrescriptionRepository {
 
     @Override
     @Transactional(Transactional.TxType.REQUIRES_NEW)
-    public void expireOne(Prescription prescription) {
-        save(prescription.expire());
+    public void expireOne(Prescription prescription, Instant expiredAt) {
+        save(prescription.expire(expiredAt));
     }
 }

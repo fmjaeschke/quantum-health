@@ -76,11 +76,11 @@ class PrescriptionExpiryJobTest {
         // rxA is fulfilled concurrently after that snapshot was taken
         QuarkusTransaction.requiringNew().run(() -> {
             var fresh = repository.findById(rxA.getId()).orElseThrow();
-            repository.save(fresh.fulfill(UserId.of("pharmacist-1")));
+            repository.save(fresh.fulfill(UserId.of("pharmacist-1"), Instant.now()));
         });
 
         // Expiring the now-stale snapshot conflicts with the concurrent fulfillment ...
-        assertThatThrownBy(() -> repository.expireOne(staleSnapshotA))
+        assertThatThrownBy(() -> repository.expireOne(staleSnapshotA, Instant.now()))
                 .isInstanceOf(ConcurrentModificationException.class);
 
         // ... and a normal expiry run still processes the rest of the batch correctly

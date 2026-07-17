@@ -13,6 +13,9 @@ import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -25,12 +28,14 @@ class InvoiceServiceTest {
     static final EncounterId ENCOUNTER = EncounterId.generate();
     static final PatientId PATIENT = PatientId.generate();
     static final BigDecimal FEE = new BigDecimal("150.00");
+    static final Instant FIXED_NOW = Instant.parse("2026-01-15T12:00:00Z");
+    static final Clock FIXED_CLOCK = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
 
     @Test
     void generate_with_gold_policy_persists_submitted_invoice_with_90_percent_coverage() {
         var invoices = new FakeInvoiceRepo();
         var policies = new FakeInsurancePolicyRepo(new InsurancePolicy(PATIENT, InsuranceTier.GOLD));
-        var service = new InvoiceService(invoices, policies, FEE);
+        var service = new InvoiceService(invoices, policies, FEE, FIXED_CLOCK);
 
         var invoice = service.generate(ENCOUNTER, PATIENT);
 
@@ -46,7 +51,7 @@ class InvoiceServiceTest {
     void generate_without_insurance_policy_persists_submitted_invoice_with_full_copay() {
         var invoices = new FakeInvoiceRepo();
         var policies = new FakeInsurancePolicyRepo();
-        var service = new InvoiceService(invoices, policies, FEE);
+        var service = new InvoiceService(invoices, policies, FEE, FIXED_CLOCK);
 
         var invoice = service.generate(ENCOUNTER, PATIENT);
 
@@ -58,7 +63,7 @@ class InvoiceServiceTest {
     @Test
     void generate_persists_exactly_one_invoice() {
         var invoices = new FakeInvoiceRepo();
-        var service = new InvoiceService(invoices, new FakeInsurancePolicyRepo(), FEE);
+        var service = new InvoiceService(invoices, new FakeInsurancePolicyRepo(), FEE, FIXED_CLOCK);
 
         service.generate(ENCOUNTER, PATIENT);
 
@@ -69,7 +74,7 @@ class InvoiceServiceTest {
     @Test
     void findById_returns_persisted_invoice() {
         var invoices = new FakeInvoiceRepo();
-        var service = new InvoiceService(invoices, new FakeInsurancePolicyRepo(), FEE);
+        var service = new InvoiceService(invoices, new FakeInsurancePolicyRepo(), FEE, FIXED_CLOCK);
         var generated = service.generate(ENCOUNTER, PATIENT);
 
         var found = service.findById(generated.getId());
@@ -79,7 +84,7 @@ class InvoiceServiceTest {
 
     @Test
     void findById_throws_when_not_found() {
-        var service = new InvoiceService(new FakeInvoiceRepo(), new FakeInsurancePolicyRepo(), FEE);
+        var service = new InvoiceService(new FakeInvoiceRepo(), new FakeInsurancePolicyRepo(), FEE, FIXED_CLOCK);
 
         assertThatThrownBy(() -> service.findById(InvoiceId.generate()))
                 .isInstanceOf(InvoiceNotFoundException.class);
@@ -88,7 +93,7 @@ class InvoiceServiceTest {
     @Test
     void pay_persists_paid_status() {
         var invoices = new FakeInvoiceRepo();
-        var service = new InvoiceService(invoices, new FakeInsurancePolicyRepo(), FEE);
+        var service = new InvoiceService(invoices, new FakeInsurancePolicyRepo(), FEE, FIXED_CLOCK);
         var generated = service.generate(ENCOUNTER, PATIENT);
 
         var paid = service.pay(generated.getId());
@@ -100,7 +105,7 @@ class InvoiceServiceTest {
     @Test
     void deny_persists_denied_status() {
         var invoices = new FakeInvoiceRepo();
-        var service = new InvoiceService(invoices, new FakeInsurancePolicyRepo(), FEE);
+        var service = new InvoiceService(invoices, new FakeInsurancePolicyRepo(), FEE, FIXED_CLOCK);
         var generated = service.generate(ENCOUNTER, PATIENT);
 
         var denied = service.deny(generated.getId());
@@ -111,7 +116,7 @@ class InvoiceServiceTest {
 
     @Test
     void pay_throws_when_not_found() {
-        var service = new InvoiceService(new FakeInvoiceRepo(), new FakeInsurancePolicyRepo(), FEE);
+        var service = new InvoiceService(new FakeInvoiceRepo(), new FakeInsurancePolicyRepo(), FEE, FIXED_CLOCK);
 
         assertThatThrownBy(() -> service.pay(InvoiceId.generate()))
                 .isInstanceOf(InvoiceNotFoundException.class);
@@ -119,7 +124,7 @@ class InvoiceServiceTest {
 
     @Test
     void deny_throws_when_not_found() {
-        var service = new InvoiceService(new FakeInvoiceRepo(), new FakeInsurancePolicyRepo(), FEE);
+        var service = new InvoiceService(new FakeInvoiceRepo(), new FakeInsurancePolicyRepo(), FEE, FIXED_CLOCK);
 
         assertThatThrownBy(() -> service.deny(InvoiceId.generate()))
                 .isInstanceOf(InvoiceNotFoundException.class);
@@ -128,7 +133,7 @@ class InvoiceServiceTest {
     @Test
     void appeal_persists_appealed_status() {
         var invoices = new FakeInvoiceRepo();
-        var service = new InvoiceService(invoices, new FakeInsurancePolicyRepo(), FEE);
+        var service = new InvoiceService(invoices, new FakeInsurancePolicyRepo(), FEE, FIXED_CLOCK);
         var generated = service.generate(ENCOUNTER, PATIENT);
         service.deny(generated.getId());
 
@@ -140,7 +145,7 @@ class InvoiceServiceTest {
 
     @Test
     void appeal_throws_when_not_found() {
-        var service = new InvoiceService(new FakeInvoiceRepo(), new FakeInsurancePolicyRepo(), FEE);
+        var service = new InvoiceService(new FakeInvoiceRepo(), new FakeInsurancePolicyRepo(), FEE, FIXED_CLOCK);
 
         assertThatThrownBy(() -> service.appeal(InvoiceId.generate()))
                 .isInstanceOf(InvoiceNotFoundException.class);
@@ -149,7 +154,7 @@ class InvoiceServiceTest {
     @Test
     void processPatientPayment_persists_patientPaidAt() {
         var invoices = new FakeInvoiceRepo();
-        var service = new InvoiceService(invoices, new FakeInsurancePolicyRepo(), FEE);
+        var service = new InvoiceService(invoices, new FakeInsurancePolicyRepo(), FEE, FIXED_CLOCK);
         var generated = service.generate(ENCOUNTER, PATIENT);
 
         var paid = service.processPatientPayment(generated.getId());
@@ -159,8 +164,19 @@ class InvoiceServiceTest {
     }
 
     @Test
+    void processPatientPayment_records_the_clocks_current_instant_as_patientPaidAt() {
+        var invoices = new FakeInvoiceRepo();
+        var service = new InvoiceService(invoices, new FakeInsurancePolicyRepo(), FEE, FIXED_CLOCK);
+        var generated = service.generate(ENCOUNTER, PATIENT);
+
+        var paid = service.processPatientPayment(generated.getId());
+
+        assertThat(paid.getPatientPaidAt()).contains(FIXED_NOW);
+    }
+
+    @Test
     void processPatientPayment_throws_when_not_found() {
-        var service = new InvoiceService(new FakeInvoiceRepo(), new FakeInsurancePolicyRepo(), FEE);
+        var service = new InvoiceService(new FakeInvoiceRepo(), new FakeInsurancePolicyRepo(), FEE, FIXED_CLOCK);
 
         assertThatThrownBy(() -> service.processPatientPayment(InvoiceId.generate()))
                 .isInstanceOf(InvoiceNotFoundException.class);

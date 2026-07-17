@@ -44,21 +44,21 @@ public final class Encounter {
         return new Encounter(id, appointmentId, doctorId, patientId, completedAt, notes);
     }
 
-    public Encounter addNote(String content, UserId authorId) {
+    public Encounter addNote(String content, UserId authorId, Instant at) {
         if (completedAt != null) {
             throw new EncounterCompletedException(id);
         }
         int nextVersion = notes.isEmpty() ? 1 : notes.get(notes.size() - 1).version() + 1;
         var updatedNotes = new ArrayList<>(notes);
-        updatedNotes.add(new NoteVersion(nextVersion, content, authorId, Instant.now()));
+        updatedNotes.add(new NoteVersion(nextVersion, content, authorId, at));
         return new Encounter(id, appointmentId, doctorId, patientId, completedAt, updatedNotes);
     }
 
-    public Encounter complete() {
+    public Encounter complete(Instant at) {
         if (completedAt != null) {
             throw new EncounterCompletedException(id);
         }
-        return new Encounter(id, appointmentId, doctorId, patientId, Instant.now(), notes);
+        return new Encounter(id, appointmentId, doctorId, patientId, at, notes);
     }
 
     public EncounterId getId() { return id; }

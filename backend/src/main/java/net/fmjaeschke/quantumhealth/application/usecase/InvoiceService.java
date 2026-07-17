@@ -18,6 +18,7 @@ import net.fmjaeschke.quantumhealth.domain.model.PatientId;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 
 @ApplicationScoped
 @Transactional
@@ -27,13 +28,15 @@ public class InvoiceService implements GenerateInvoiceUseCase, ReadInvoiceUseCas
     private final InvoiceRepository invoiceRepository;
     private final InsurancePolicyRepository insurancePolicyRepository;
     private final BigDecimal consultationFee;
+    private final Clock clock;
 
     public InvoiceService(InvoiceRepository invoiceRepository, InsurancePolicyRepository insurancePolicyRepository,
                           @ConfigProperty(name = "quantum-health.billing.consultation-fee", defaultValue = "150.00")
-                          BigDecimal consultationFee) {
+                          BigDecimal consultationFee, Clock clock) {
         this.invoiceRepository = invoiceRepository;
         this.insurancePolicyRepository = insurancePolicyRepository;
         this.consultationFee = consultationFee;
+        this.clock = clock;
     }
 
     @Override
@@ -70,6 +73,6 @@ public class InvoiceService implements GenerateInvoiceUseCase, ReadInvoiceUseCas
     @Override
     public Invoice processPatientPayment(InvoiceId id) {
         var invoice = invoiceRepository.findById(id).orElseThrow(() -> new InvoiceNotFoundException(id));
-        return invoiceRepository.save(invoice.processPatientPayment());
+        return invoiceRepository.save(invoice.processPatientPayment(clock.instant()));
     }
 }

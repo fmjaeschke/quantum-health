@@ -13,12 +13,14 @@ class EncounterTest {
     private static final AppointmentId APPOINTMENT = AppointmentId.generate();
     private static final UserId DOCTOR = UserId.of("dr-smith");
     private static final PatientId PATIENT = PatientId.generate();
+    private static final Instant NOTE_AT = Instant.parse("2026-01-05T10:00:00Z");
+    private static final Instant COMPLETED_AT = Instant.parse("2026-01-05T11:00:00Z");
 
     @Test
     void addNote_on_fresh_encounter_creates_version_1() {
         var encounter = Encounter.create(APPOINTMENT, DOCTOR, PATIENT);
 
-        var updated = encounter.addNote("Patient presents with mild fever.", DOCTOR);
+        var updated = encounter.addNote("Patient presents with mild fever.", DOCTOR, NOTE_AT);
 
         assertThat(updated.getLatestNote()).isPresent();
         var note = updated.getLatestNote().orElseThrow();
@@ -29,11 +31,20 @@ class EncounterTest {
     }
 
     @Test
+    void addNote_records_the_exact_instant_passed_in_as_createdAt() {
+        var encounter = Encounter.create(APPOINTMENT, DOCTOR, PATIENT);
+
+        var updated = encounter.addNote("Patient presents with mild fever.", DOCTOR, NOTE_AT);
+
+        assertThat(updated.getLatestNote().orElseThrow().createdAt()).isEqualTo(NOTE_AT);
+    }
+
+    @Test
     void addNote_twice_creates_version_2_without_altering_version_1() {
         var encounter = Encounter.create(APPOINTMENT, DOCTOR, PATIENT)
-                .addNote("First note.", DOCTOR);
+                .addNote("First note.", DOCTOR, NOTE_AT);
 
-        var updated = encounter.addNote("Second note.", DOCTOR);
+        var updated = encounter.addNote("Second note.", DOCTOR, NOTE_AT);
 
         assertThat(updated.getNotes()).hasSize(2);
         assertThat(updated.getNotes().get(0).version()).isEqualTo(1);
@@ -47,7 +58,7 @@ class EncounterTest {
     void addNote_returns_new_instance_not_mutating_original() {
         var encounter = Encounter.create(APPOINTMENT, DOCTOR, PATIENT);
 
-        encounter.addNote("A note.", DOCTOR);
+        encounter.addNote("A note.", DOCTOR, NOTE_AT);
 
         assertThat(encounter.getNotes()).isEmpty();
     }
@@ -57,7 +68,7 @@ class EncounterTest {
         var encounter = Encounter.reconstitute(EncounterId.generate(), APPOINTMENT, DOCTOR, PATIENT,
                 Instant.now(), java.util.List.of());
 
-        assertThatThrownBy(() -> encounter.addNote("Too late.", DOCTOR))
+        assertThatThrownBy(() -> encounter.addNote("Too late.", DOCTOR, NOTE_AT))
                 .isInstanceOf(EncounterCompletedException.class);
     }
 
@@ -65,9 +76,18 @@ class EncounterTest {
     void complete_on_fresh_encounter_sets_completedAt() {
         var encounter = Encounter.create(APPOINTMENT, DOCTOR, PATIENT);
 
-        var completed = encounter.complete();
+        var completed = encounter.complete(COMPLETED_AT);
 
         assertThat(completed.getCompletedAt()).isPresent();
+    }
+
+    @Test
+    void complete_records_the_exact_instant_passed_in_as_completedAt() {
+        var encounter = Encounter.create(APPOINTMENT, DOCTOR, PATIENT);
+
+        var completed = encounter.complete(COMPLETED_AT);
+
+        assertThat(completed.getCompletedAt()).contains(COMPLETED_AT);
     }
 
     @Test
@@ -75,7 +95,7 @@ class EncounterTest {
         var encounter = Encounter.reconstitute(EncounterId.generate(), APPOINTMENT, DOCTOR, PATIENT,
                 Instant.now(), java.util.List.of());
 
-        assertThatThrownBy(encounter::complete)
+        assertThatThrownBy(() -> encounter.complete(COMPLETED_AT))
                 .isInstanceOf(EncounterCompletedException.class);
     }
 }

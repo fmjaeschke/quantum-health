@@ -78,7 +78,7 @@ class EncounterResourceTest {
     @Test
     @TestSecurity(user = "dr-smith", roles = {"DOCTOR"})
     void assigned_doctor_can_add_note() {
-        var withNote = ENCOUNTER.addNote("Patient presents with mild fever.", UserId.of("dr-smith"));
+        var withNote = ENCOUNTER.addNote("Patient presents with mild fever.", UserId.of("dr-smith"), Instant.now());
         when(addNoteMock.addNote(any(), any(), any())).thenReturn(withNote);
 
         given()
@@ -133,8 +133,8 @@ class EncounterResourceTest {
     @Test
     @TestSecurity(user = "dr-smith", roles = {"DOCTOR"})
     void get_encounter_reflects_latest_note_content() {
-        var withNote = ENCOUNTER.addNote("First note.", UserId.of("dr-smith"))
-                .addNote("Second note.", UserId.of("dr-smith"));
+        var withNote = ENCOUNTER.addNote("First note.", UserId.of("dr-smith"), Instant.now())
+                .addNote("Second note.", UserId.of("dr-smith"), Instant.now());
         when(readMock.findById(any(), any())).thenReturn(withNote);
 
         given()

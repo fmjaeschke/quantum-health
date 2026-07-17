@@ -18,6 +18,8 @@ import net.fmjaeschke.quantumhealth.domain.model.EncounterId;
 import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 
+import java.time.Clock;
+
 @ApplicationScoped
 @Transactional
 public class EncounterService implements ReadEncounterUseCase, AddClinicalNoteUseCase, CompleteEncounterUseCase {
@@ -27,15 +29,17 @@ public class EncounterService implements ReadEncounterUseCase, AddClinicalNoteUs
     private final EncounterNoteRepository noteRepository;
     private final AppointmentRepository appointmentRepository;
     private final DomainEventPublisher domainEventPublisher;
+    private final Clock clock;
 
     public EncounterService(EncounterRepository repository, AccessPolicy accessPolicy,
                             EncounterNoteRepository noteRepository, AppointmentRepository appointmentRepository,
-                            DomainEventPublisher domainEventPublisher) {
+                            DomainEventPublisher domainEventPublisher, Clock clock) {
         this.repository = repository;
         this.accessPolicy = accessPolicy;
         this.noteRepository = noteRepository;
         this.appointmentRepository = appointmentRepository;
         this.domainEventPublisher = domainEventPublisher;
+        this.clock = clock;
     }
 
     @Override
@@ -53,7 +57,7 @@ public class EncounterService implements ReadEncounterUseCase, AddClinicalNoteUs
         accessPolicy.check(Permission.WRITE_ENCOUNTER, actor, id);
         var encounter = repository.findById(id)
                 .orElseThrow(() -> new EncounterNotFoundException(id));
-        var updated = encounter.withNotes(noteRepository.findByEncounterId(id)).addNote(content, actor);
+        var updated = encounter.withNotes(noteRepository.findByEncounterId(id)).addNote(content, actor, clock.instant());
         noteRepository.save(id, updated.getLatestNote().orElseThrow());
         return updated;
     }
@@ -64,7 +68,7 @@ public class EncounterService implements ReadEncounterUseCase, AddClinicalNoteUs
         var encounter = repository.findById(id)
                 .orElseThrow(() -> new EncounterNotFoundException(id))
                 .withNotes(noteRepository.findByEncounterId(id));
-        var completed = repository.save(encounter.complete());
+        var completed = repository.save(encounter.complete(clock.instant()));
 
         var appointment = appointmentRepository.findById(completed.getAppointmentId())
                 .orElseThrow(() -> new AppointmentNotFoundException(completed.getAppointmentId()));

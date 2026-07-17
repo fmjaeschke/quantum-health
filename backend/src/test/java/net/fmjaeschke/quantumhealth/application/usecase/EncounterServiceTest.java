@@ -24,7 +24,9 @@ import net.fmjaeschke.quantumhealth.domain.model.ResourceId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +44,8 @@ class EncounterServiceTest {
     static final UserId UNRELATED_DOCTOR = UserId.of("dr-other");
     static final PatientId PATIENT = PatientId.generate();
     static final AppointmentId APPOINTMENT_ID = AppointmentId.generate();
+    static final Instant FIXED_NOW = Instant.parse("2026-01-15T12:00:00Z");
+    static final Clock FIXED_CLOCK = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
 
     static Encounter encounter() {
         return Encounter.create(APPOINTMENT_ID, ASSIGNED_DOCTOR, PATIENT);
@@ -52,7 +56,7 @@ class EncounterServiceTest {
         var encounter = encounter();
         var repo = new FakeEncounterRepo(encounter);
         var service = new EncounterService(repo, new FakeAccessPolicy(Set.of(ASSIGNED_DOCTOR)), new FakeEncounterNoteRepository(),
-                new FakeAppointmentRepo(), new RecordingDomainEventPublisher());
+                new FakeAppointmentRepo(), new RecordingDomainEventPublisher(), FIXED_CLOCK);
 
         var found = service.findById(encounter.getId(), ASSIGNED_DOCTOR);
 
@@ -64,7 +68,7 @@ class EncounterServiceTest {
         var encounter = encounter();
         var repo = new FakeEncounterRepo(encounter);
         var service = new EncounterService(repo, new FakeAccessPolicy(Set.of(OTHER_TREATING_DOCTOR)), new FakeEncounterNoteRepository(),
-                new FakeAppointmentRepo(), new RecordingDomainEventPublisher());
+                new FakeAppointmentRepo(), new RecordingDomainEventPublisher(), FIXED_CLOCK);
 
         var found = service.findById(encounter.getId(), OTHER_TREATING_DOCTOR);
 
@@ -76,7 +80,7 @@ class EncounterServiceTest {
         var encounter = encounter();
         var repo = new FakeEncounterRepo(encounter);
         var service = new EncounterService(repo, new FakeAccessPolicy(Set.of(ASSIGNED_DOCTOR)), new FakeEncounterNoteRepository(),
-                new FakeAppointmentRepo(), new RecordingDomainEventPublisher());
+                new FakeAppointmentRepo(), new RecordingDomainEventPublisher(), FIXED_CLOCK);
 
         assertThatThrownBy(() -> service.findById(encounter.getId(), UNRELATED_DOCTOR))
                 .isInstanceOf(EncounterNotFoundException.class);
@@ -85,7 +89,7 @@ class EncounterServiceTest {
     @Test
     void findById_throws_when_not_found() {
         var service = new EncounterService(new FakeEncounterRepo(), new FakeAccessPolicy(Set.of()), new FakeEncounterNoteRepository(),
-                new FakeAppointmentRepo(), new RecordingDomainEventPublisher());
+                new FakeAppointmentRepo(), new RecordingDomainEventPublisher(), FIXED_CLOCK);
 
         var id = EncounterId.generate();
         assertThatThrownBy(() -> service.findById(id, ASSIGNED_DOCTOR))
@@ -98,7 +102,7 @@ class EncounterServiceTest {
         var repo = new FakeEncounterRepo(encounter);
         var notes = new FakeEncounterNoteRepository();
         var service = new EncounterService(repo, new FakeAccessPolicy(Set.of()), notes,
-                new FakeAppointmentRepo(), new RecordingDomainEventPublisher());
+                new FakeAppointmentRepo(), new RecordingDomainEventPublisher(), FIXED_CLOCK);
 
         var updated = service.addNote(encounter.getId(), "First note.", ASSIGNED_DOCTOR);
 
@@ -113,7 +117,7 @@ class EncounterServiceTest {
         var repo = new FakeEncounterRepo(encounter);
         var notes = new FakeEncounterNoteRepository();
         var service = new EncounterService(repo, new FakeAccessPolicy(Set.of()), notes,
-                new FakeAppointmentRepo(), new RecordingDomainEventPublisher());
+                new FakeAppointmentRepo(), new RecordingDomainEventPublisher(), FIXED_CLOCK);
 
         service.addNote(encounter.getId(), "First note.", ASSIGNED_DOCTOR);
         var updated = service.addNote(encounter.getId(), "Second note.", ASSIGNED_DOCTOR);
@@ -126,11 +130,24 @@ class EncounterServiceTest {
     }
 
     @Test
+    void addNote_records_the_clocks_current_instant_as_createdAt() {
+        var encounter = encounter();
+        var repo = new FakeEncounterRepo(encounter);
+        var notes = new FakeEncounterNoteRepository();
+        var service = new EncounterService(repo, new FakeAccessPolicy(Set.of()), notes,
+                new FakeAppointmentRepo(), new RecordingDomainEventPublisher(), FIXED_CLOCK);
+
+        var updated = service.addNote(encounter.getId(), "First note.", ASSIGNED_DOCTOR);
+
+        assertThat(updated.getLatestNote().orElseThrow().createdAt()).isEqualTo(FIXED_NOW);
+    }
+
+    @Test
     void addNote_by_non_assigned_doctor_throws_AccessDeniedException() {
         var encounter = encounter();
         var repo = new FakeEncounterRepo(encounter);
         var service = new EncounterService(repo, new FakeAccessPolicy(Set.of(), true), new FakeEncounterNoteRepository(),
-                new FakeAppointmentRepo(), new RecordingDomainEventPublisher());
+                new FakeAppointmentRepo(), new RecordingDomainEventPublisher(), FIXED_CLOCK);
 
         assertThatThrownBy(() -> service.addNote(encounter.getId(), "Note.", UNRELATED_DOCTOR))
                 .isInstanceOf(AccessDeniedException.class);
@@ -142,7 +159,7 @@ class EncounterServiceTest {
                 Instant.now(), List.of());
         var repo = new FakeEncounterRepo(completed);
         var service = new EncounterService(repo, new FakeAccessPolicy(Set.of()), new FakeEncounterNoteRepository(),
-                new FakeAppointmentRepo(), new RecordingDomainEventPublisher());
+                new FakeAppointmentRepo(), new RecordingDomainEventPublisher(), FIXED_CLOCK);
 
         assertThatThrownBy(() -> service.addNote(completed.getId(), "Too late.", ASSIGNED_DOCTOR))
                 .isInstanceOf(EncounterCompletedException.class);
@@ -157,7 +174,7 @@ class EncounterServiceTest {
         var appointmentRepo = new FakeAppointmentRepo(appointment);
         var events = new RecordingDomainEventPublisher();
         var service = new EncounterService(repo, new FakeAccessPolicy(Set.of()), new FakeEncounterNoteRepository(),
-                appointmentRepo, events);
+                appointmentRepo, events, FIXED_CLOCK);
 
         var completed = service.complete(encounter.getId(), ASSIGNED_DOCTOR);
 
@@ -173,11 +190,25 @@ class EncounterServiceTest {
     }
 
     @Test
+    void complete_records_the_clocks_current_instant_as_completedAt() {
+        var encounter = encounter();
+        var repo = new FakeEncounterRepo(encounter);
+        var appointment = Appointment.reconstitute(APPOINTMENT_ID, PATIENT, "Alice", ASSIGNED_DOCTOR, "Dr. Smith",
+                Instant.now(), "checkup", AppointmentStatus.IN_PROGRESS);
+        var service = new EncounterService(repo, new FakeAccessPolicy(Set.of()), new FakeEncounterNoteRepository(),
+                new FakeAppointmentRepo(appointment), new RecordingDomainEventPublisher(), FIXED_CLOCK);
+
+        var completed = service.complete(encounter.getId(), ASSIGNED_DOCTOR);
+
+        assertThat(completed.getCompletedAt()).contains(FIXED_NOW);
+    }
+
+    @Test
     void complete_by_non_assigned_doctor_throws_AccessDeniedException() {
         var encounter = encounter();
         var repo = new FakeEncounterRepo(encounter);
         var service = new EncounterService(repo, new FakeAccessPolicy(Set.of(), true), new FakeEncounterNoteRepository(),
-                new FakeAppointmentRepo(), new RecordingDomainEventPublisher());
+                new FakeAppointmentRepo(), new RecordingDomainEventPublisher(), FIXED_CLOCK);
 
         assertThatThrownBy(() -> service.complete(encounter.getId(), UNRELATED_DOCTOR))
                 .isInstanceOf(AccessDeniedException.class);
@@ -189,7 +220,7 @@ class EncounterServiceTest {
                 Instant.now(), List.of());
         var repo = new FakeEncounterRepo(completed);
         var service = new EncounterService(repo, new FakeAccessPolicy(Set.of()), new FakeEncounterNoteRepository(),
-                new FakeAppointmentRepo(), new RecordingDomainEventPublisher());
+                new FakeAppointmentRepo(), new RecordingDomainEventPublisher(), FIXED_CLOCK);
 
         assertThatThrownBy(() -> service.complete(completed.getId(), ASSIGNED_DOCTOR))
                 .isInstanceOf(EncounterCompletedException.class);
