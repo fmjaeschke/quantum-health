@@ -4,8 +4,8 @@ import jakarta.data.exceptions.OptimisticLockingFailureException;
 import jakarta.data.page.PageRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.persistence.OptimisticLockException;
 import jakarta.transaction.Transactional;
+import net.fmjaeschke.quantumhealth.application.exception.ConcurrentModificationException;
 import net.fmjaeschke.quantumhealth.application.ports.out.PrescriptionRepository;
 import net.fmjaeschke.quantumhealth.domain.model.Prescription;
 import net.fmjaeschke.quantumhealth.domain.model.PrescriptionId;
@@ -39,9 +39,10 @@ public class JpaPrescriptionRepository implements PrescriptionRepository {
             return dataRepository.save(JpaPrescription.from(prescription)).toDomain();
         } catch (OptimisticLockingFailureException e) {
             // The generated save() wraps a stale @Version conflict (StaleStateException) as
-            // OptimisticLockingFailureException; rethrow as the JPA exception so callers
-            // (PrescriptionService, OptimisticLockExceptionMapper) keep catching it, unchanged.
-            throw new OptimisticLockException(e.getMessage(), e.getCause());
+            // OptimisticLockingFailureException; translate to the application-level exception so
+            // callers (PrescriptionService, ConcurrentModificationExceptionMapper) stay free of
+            // JPA/Jakarta Data types.
+            throw new ConcurrentModificationException(e.getMessage());
         }
     }
 

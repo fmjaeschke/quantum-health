@@ -1,8 +1,8 @@
 package net.fmjaeschke.quantumhealth.application.usecase;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.persistence.OptimisticLockException;
 import jakarta.transaction.Transactional;
+import net.fmjaeschke.quantumhealth.application.exception.ConcurrentModificationException;
 import net.fmjaeschke.quantumhealth.application.exception.DoctorNotFoundException;
 import net.fmjaeschke.quantumhealth.application.exception.PatientNotFoundException;
 import net.fmjaeschke.quantumhealth.application.exception.PrescriptionNotFoundException;
@@ -102,7 +102,7 @@ public class PrescriptionService implements IssuePrescriptionUseCase, ReadPrescr
             try {
                 repository.expireOne(prescription);
                 expiredCount++;
-            } catch (OptimisticLockException _) {
+            } catch (ConcurrentModificationException _) {
                 LOG.warnf("Skipping prescription %s during expiry: concurrently modified",
                         prescription.getId().value());
             }

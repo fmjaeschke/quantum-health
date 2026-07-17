@@ -6,8 +6,8 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.OptimisticLockException;
 import jakarta.transaction.Transactional;
+import net.fmjaeschke.quantumhealth.application.exception.ConcurrentModificationException;
 import net.fmjaeschke.quantumhealth.application.ports.out.PrescriptionRepository;
 import net.fmjaeschke.quantumhealth.domain.model.MedicationItem;
 import net.fmjaeschke.quantumhealth.domain.model.PatientId;
@@ -171,7 +171,7 @@ class JpaPrescriptionRepositoryTest {
 
     @Test
     @DataSet("datasets/prescription.yml")
-    void save_with_stale_version_throws_optimistic_lock_exception() {
+    void save_with_stale_version_throws_concurrent_modification_exception() {
         var snapshot1 = QuarkusTransaction.requiringNew().call(() -> repository.findById(RX_001).orElseThrow());
         var snapshot2 = QuarkusTransaction.requiringNew().call(() -> repository.findById(RX_001).orElseThrow());
 
@@ -180,7 +180,7 @@ class JpaPrescriptionRepositoryTest {
 
         assertThatThrownBy(() -> QuarkusTransaction.requiringNew().run(() ->
                 repository.save(snapshot2.cancel(UserId.of("doctor-1"), "stale update"))))
-                .isInstanceOf(OptimisticLockException.class);
+                .isInstanceOf(ConcurrentModificationException.class);
     }
 
     @Test

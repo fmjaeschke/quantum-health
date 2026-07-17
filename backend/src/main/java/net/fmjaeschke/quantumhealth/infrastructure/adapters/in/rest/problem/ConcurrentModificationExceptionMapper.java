@@ -1,17 +1,17 @@
 package net.fmjaeschke.quantumhealth.infrastructure.adapters.in.rest.problem;
 
 import io.quarkiverse.resteasy.problem.HttpProblem;
-import jakarta.persistence.OptimisticLockException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+import net.fmjaeschke.quantumhealth.application.exception.ConcurrentModificationException;
 
 @Provider
-public class OptimisticLockExceptionMapper implements ExceptionMapper<OptimisticLockException> {
+public class ConcurrentModificationExceptionMapper implements ExceptionMapper<ConcurrentModificationException> {
 
     @Override
-    public Response toResponse(OptimisticLockException e) {
+    public Response toResponse(ConcurrentModificationException e) {
         return HttpProblem.builder()
                 .withStatus(Status.CONFLICT)
                 .withTitle("Conflict")

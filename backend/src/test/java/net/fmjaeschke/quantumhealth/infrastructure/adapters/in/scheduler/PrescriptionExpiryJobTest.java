@@ -3,7 +3,7 @@ package net.fmjaeschke.quantumhealth.infrastructure.adapters.in.scheduler;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
-import jakarta.persistence.OptimisticLockException;
+import net.fmjaeschke.quantumhealth.application.exception.ConcurrentModificationException;
 import net.fmjaeschke.quantumhealth.application.ports.out.PrescriptionRepository;
 import net.fmjaeschke.quantumhealth.domain.model.Disposition;
 import net.fmjaeschke.quantumhealth.domain.model.MedicationItem;
@@ -81,7 +81,7 @@ class PrescriptionExpiryJobTest {
 
         // Expiring the now-stale snapshot conflicts with the concurrent fulfillment ...
         assertThatThrownBy(() -> repository.expireOne(staleSnapshotA))
-                .isInstanceOf(OptimisticLockException.class);
+                .isInstanceOf(ConcurrentModificationException.class);
 
         // ... and a normal expiry run still processes the rest of the batch correctly
         job.expireStale();

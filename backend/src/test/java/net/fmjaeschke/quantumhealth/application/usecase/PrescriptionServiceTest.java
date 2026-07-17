@@ -2,6 +2,7 @@ package net.fmjaeschke.quantumhealth.application.usecase;
 
 import net.fmjaeschke.quantumhealth.domain.model.Permission;
 import net.fmjaeschke.quantumhealth.application.exception.AccessDeniedException;
+import net.fmjaeschke.quantumhealth.application.exception.ConcurrentModificationException;
 import net.fmjaeschke.quantumhealth.application.exception.DoctorNotFoundException;
 import net.fmjaeschke.quantumhealth.application.exception.PatientNotFoundException;
 import net.fmjaeschke.quantumhealth.application.exception.PrescriptionNotFoundException;
@@ -24,7 +25,6 @@ import net.fmjaeschke.quantumhealth.domain.model.ResourceId;
 import net.fmjaeschke.quantumhealth.domain.model.UserId;
 import org.junit.jupiter.api.Test;
 
-import jakarta.persistence.OptimisticLockException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -293,7 +293,7 @@ class PrescriptionServiceTest {
         @Override
         public void expireOne(Prescription prescription) {
             if (conflictOnExpire.contains(prescription.getId())) {
-                throw new OptimisticLockException("stale version for " + prescription.getId().value());
+                throw new ConcurrentModificationException("stale version for " + prescription.getId().value());
             }
             save(prescription.expire());
         }

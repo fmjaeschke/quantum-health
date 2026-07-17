@@ -4,7 +4,7 @@ import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
-import jakarta.persistence.OptimisticLockException;
+import net.fmjaeschke.quantumhealth.application.exception.ConcurrentModificationException;
 import net.fmjaeschke.quantumhealth.application.exception.PrescriptionNotFoundException;
 import net.fmjaeschke.quantumhealth.application.ports.in.CancelPrescriptionUseCase;
 import net.fmjaeschke.quantumhealth.application.ports.in.FulfillPrescriptionUseCase;
@@ -339,7 +339,7 @@ class PrescriptionResourceTest {
     @TestSecurity(user = "pharmacist-1", roles = {"PHARMACIST"})
     void fulfilling_concurrently_modified_prescription_returns_409() {
         when(fulfillMock.fulfill(eq(PrescriptionId.of(RX_ID)), any()))
-                .thenThrow(new OptimisticLockException("stale version"));
+                .thenThrow(new ConcurrentModificationException("stale version"));
 
         given().when()
                 .post("/prescriptions/" + RX_ID + "/fulfill")
